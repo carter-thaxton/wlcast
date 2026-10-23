@@ -1,0 +1,21 @@
+[package]
+name = "wlcast"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+ctrlc = { version = "3.5.2", features = ["termination"] }
+env_logger = "0.11.11"
+gstreamer = "0.25.4"
+gstreamer-app = "0.25.2"
+log = "0.4.34"
+
+[features]
+# Production: link a static "gst-full" GStreamer build. Use with
+# `--config gst-static.toml` (see CLAUDE.md).
+static-gst = ["dep:pkg-config"]
+
+[build-dependencies]
+pkg-config = { version = "0.3", optional = true }
