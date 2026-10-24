@@ -32,7 +32,9 @@ serves the viewer page and fans the stream out to browsers over WebRTC.
   other services needed. If the output goes away (unplugged, or replaced by a
   compositor's fallback output), wlcast picks an output again.
 - **Audio:** the default PipeWire sink's monitor, so viewers hear whatever the
-  machine is playing.
+  machine is playing. Audio never holds up video. If PipeWire isn't running,
+  restarts, or has no sink to monitor, wlcast sends silence and keeps retrying
+  PipeWire in the background.
 - **Encoding:** at startup wlcast probes for a working H.264 encoder: VA-API
   low-power, then VA-API, each with CBR and then CQP, then x264. It logs the one
   it picks.
@@ -141,7 +143,9 @@ libraries statically. See the comments in those files and in the script.
 - A Wayland compositor offering `ext-image-copy-capture-v1` or
   `wlr-screencopy-unstable-v1` v3, or else xdg-desktop-portal with a
   ScreenCast backend such as xdg-desktop-portal-gnome.
-- PipeWire, for audio (and for video with the portal).
+- PipeWire, for audio (and for video with the portal). Without it, the stream
+  carries silence. libpipewire must still be installed, because the binary
+  links against it.
 - For hardware encoding, a VA-API driver, e.g. `intel-media-va-driver` on Intel.
   Without one, wlcast falls back to x264.
 
@@ -214,6 +218,7 @@ Options (each can also be set through the environment variable shown in
 | `--capture` | `auto` | `auto`, `ext`, `wlr` or `portal` (see above) |
 | `--output` | first output | Output to capture, by name (e.g. `HDMI-A-1`); not used with the portal |
 | `--cursor` | `true` | Draw the mouse cursor |
+| `--audio` | `true` | Capture system audio; `false` sends silence |
 | `--audio-target` | default sink | Capture this sink's monitor (its `node.name`) |
 | `--restore-token-file` | `$XDG_STATE_HOME/wlcast/portal-restore-token` | Portal restore token |
 

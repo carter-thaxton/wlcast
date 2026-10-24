@@ -64,6 +64,10 @@ pub struct Config {
     #[arg(long, env = "WLCAST_CURSOR", default_value_t = true, action = clap::ArgAction::Set)]
     pub cursor: bool,
 
+    /// Capture system audio; false sends silence instead.
+    #[arg(long, env = "WLCAST_AUDIO", default_value_t = true, action = clap::ArgAction::Set)]
+    pub audio: bool,
+
     /// Capture this sink's monitor (its node.name) instead of the default sink's.
     #[arg(long, env = "WLCAST_AUDIO_TARGET")]
     pub audio_target: Option<String>,

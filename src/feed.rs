@@ -109,6 +109,11 @@ impl Feed {
         self.state().stopped.clone()
     }
 
+    /// Forgets a failure, for sources that recover on their own.
+    pub fn clear_stopped(&self) {
+        self.state().stopped = None;
+    }
+
     /// Starts feeding a pipeline's appsrc. Call once the pipeline is PLAYING.
     pub fn attach(&self, src: gst_app::AppSrc, base_time: gst::ClockTime) {
         let mut st = self.state();

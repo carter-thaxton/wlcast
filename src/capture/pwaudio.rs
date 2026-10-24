@@ -1,45 +1,33 @@
-//! System audio: the default sink's monitor, captured with PipeWire.
+//! The default sink's monitor, captured with PipeWire. Managed by
+//! super::audio, which fills gaps with silence and retries on failure.
 
 use anyhow::{Context, Result};
 use gstreamer as gst;
 use gstreamer::prelude::*;
-use log::{debug, info};
+use log::info;
 use pipewire as pw;
 use pw::properties::properties;
 use pw::spa;
 use pw::spa::param::audio::{AudioFormat, AudioInfoRaw};
 
+use super::audio::{CHANNELS, FRAME_BYTES, RATE, SharedTimeline};
 use super::pw::{as_pod, check_state, pod_bytes, spawn, watch_core};
 use crate::feed::{self, Feed, Running};
-
-const RATE: u32 = 48_000;
-const CHANNELS: u32 = 2;
-const FRAME_BYTES: usize = 2 * CHANNELS as usize; // S16LE
-/// Timestamps follow the sample count, and resync to arrival time when they
-/// drift further than MAX_DRIFT from it for RESYNC_AFTER chunks in a row
-/// (xruns, graph restarts, clock drift), or by more than MAX_JUMP at once.
-/// A single late callback doesn't count: the samples weren't late.
-const MAX_DRIFT: gst::ClockTime = gst::ClockTime::from_mseconds(20);
-const RESYNC_AFTER: u32 = 10;
-const MAX_JUMP: gst::ClockTime = gst::ClockTime::from_mseconds(200);
 
 struct State {
     feed: Feed,
     clock: gst::Clock,
-    next_pts: Option<gst::ClockTime>,
-    drifting: u32,
+    timeline: SharedTimeline,
 }
 
-/// Starts capturing the default sink's monitor, or the sink named `target`.
-pub fn start(running: &mut Running, target: Option<String>, feed: Feed) -> Result<()> {
-    feed.set_caps(
-        gst::Caps::builder("audio/x-raw")
-            .field("format", "S16LE")
-            .field("layout", "interleaved")
-            .field("rate", RATE as i32)
-            .field("channels", CHANNELS as i32)
-            .build(),
-    );
+/// Starts capturing the default sink's monitor, or the sink named `target`,
+/// into `feed`, timestamped on `timeline`. Failures are reported on `feed`.
+pub fn start(
+    running: &mut Running,
+    target: Option<String>,
+    feed: Feed,
+    timeline: SharedTimeline,
+) -> Result<()> {
     let format_pod = pod_bytes(enum_format());
     spawn("pw-audio", running, move |mainloop| {
         let context = pw::context::ContextRc::new(mainloop, None).context("PipeWire context")?;
@@ -60,8 +48,7 @@ pub fn start(running: &mut Running, target: Option<String>, feed: Feed) -> Resul
         let state = State {
             feed: feed.clone(),
             clock: feed::clock(),
-            next_pts: None,
-            drifting: 0,
+            timeline,
         };
         let listener = stream
             .add_local_listener_with_user_data(state)
@@ -98,8 +85,8 @@ pub fn start(running: &mut Running, target: Option<String>, feed: Feed) -> Resul
 fn enum_format() -> spa::pod::Object {
     let mut info = AudioInfoRaw::new();
     info.set_format(AudioFormat::S16LE);
-    info.set_rate(RATE);
-    info.set_channels(CHANNELS);
+    info.set_rate(RATE as u32);
+    info.set_channels(CHANNELS as u32);
     let mut position = [0; spa::sys::SPA_AUDIO_MAX_CHANNELS as usize];
     position[0] = spa::sys::SPA_AUDIO_CHANNEL_FL;
     position[1] = spa::sys::SPA_AUDIO_CHANNEL_FR;
@@ -128,29 +115,9 @@ fn on_process(stream: &pw::stream::Stream, st: &mut State) {
         return;
     }
 
-    // The chunk ended at about `now`. Follow the sample count while it stays
-    // close to that, so timestamps don't pick up callback jitter.
-    let duration = gst::ClockTime::from_nseconds(frames as u64 * 1_000_000_000 / RATE as u64);
-    let arrival = now.saturating_sub(duration);
-    let pts = match st.next_pts {
-        Some(next) => {
-            let off = next.absdiff(arrival);
-            st.drifting = if off > MAX_DRIFT { st.drifting + 1 } else { 0 };
-            if st.drifting >= RESYNC_AFTER || off > MAX_JUMP {
-                debug!(
-                    "audio: resync by {} ms",
-                    (arrival.nseconds() as i64 - next.nseconds() as i64) / 1_000_000
-                );
-                st.drifting = 0;
-                arrival
-            } else {
-                next
-            }
-        }
-        None => arrival,
-    };
-    st.next_pts = Some(pts + duration);
-
+    // Push while holding the timeline, so silence fill can't interleave.
+    let mut timeline = st.timeline.lock().unwrap();
+    let (pts, duration) = timeline.real(frames as u64, now);
     let mut buf = gst::Buffer::from_slice(samples[..frames * FRAME_BYTES].to_vec());
     buf.get_mut().unwrap().set_duration(duration);
     st.feed.push(buf, pts);

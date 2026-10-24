@@ -1,6 +1,7 @@
 //! Capture sources. A video backend fills the video feed; system audio (or
 //! the test pattern) fills the audio feed.
 
+mod audio;
 mod portal;
 mod pw;
 mod pwaudio;
@@ -61,9 +62,11 @@ impl Capture {
             info!("capture: test pattern");
             running.push(testsrc::start(cfg.fps, video.clone(), audio.clone()));
         } else {
-            let mut a = Running::new();
-            pwaudio::start(&mut a, cfg.audio_target.clone(), audio.clone())?;
-            running.push(a);
+            running.push(audio::start(
+                cfg.audio,
+                cfg.audio_target.clone(),
+                audio.clone(),
+            ));
             let backend = select_backend(cfg);
             info!("capture: {}", backend.name());
             running.push(backend.start(cfg, video.clone())?);
@@ -75,12 +78,10 @@ impl Capture {
         })
     }
 
-    /// Why capture stopped, if it has. A requested stop wins over a failure.
+    /// Why capture stopped, if it has. Only video counts: audio recovers on
+    /// its own (see audio.rs).
     pub fn stopped(&self) -> Option<Stop> {
-        match (self.video.stopped(), self.audio.stopped()) {
-            (Some(r @ Stop::Requested(_)), _) | (_, Some(r @ Stop::Requested(_))) => Some(r),
-            (v, a) => v.or(a),
-        }
+        self.video.stopped()
     }
 
     /// After a failure, waits up to `grace` in case it turns into a
