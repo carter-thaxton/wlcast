@@ -1,14 +1,14 @@
 # wlcast
 
 wlcast streams a live Wayland desktop, with video and system audio, to web
-browsers.  It puts readable text, A/V sync and low latency ahead of picture
+browsers.  It puts readable text, A/V sync, and low latency ahead of picture
 quality.  It's one-way: viewers watch and listen, with no input handling.
 
-It's intended for small Wayland environments, such as appliances, kiosks and
-embedded or headless devices running a lightweight compositor.  That's why it
-can be built as a single binary with GStreamer linked in (see
-[static-gst](#static-gst-gstreamer-built-in)).  It also runs on desktops such
-as GNOME.
+It's intended for small Wayland environments, such as appliances, kiosks,
+and embedded or headless devices running a lightweight compositor.  That's
+why it can be built as a single binary with GStreamer linked in (see
+[static-gst](#static-gst-gstreamer-built-in)).  It also runs on desktops
+such as GNOME.
 
 ```
 screen capture ─► H.264 (VA-API or x264) ─┐
@@ -22,7 +22,7 @@ MediaMTX serves the viewer page and fans the stream out to browsers over
 WebRTC.
 
 - **Screen capture:** wlcast picks the best method the compositor offers:
-  1. `ext-image-copy-capture-v1` (labwc, sway and other wlroots 0.19+
+  1. `ext-image-copy-capture-v1` (labwc, sway, and other wlroots 0.19+
      compositors);
   2. `wlr-screencopy-unstable-v1` version 3 (older wlroots compositors);
   3. the xdg-desktop-portal ScreenCast portal (GNOME, KDE).  On the first run
@@ -85,10 +85,10 @@ GStreamer element it needs is installed and names any that are missing.
 ### static-gst: GStreamer built in
 
 For deployment on small systems that shouldn't need a full GStreamer
-installation.  GStreamer 1.26, glib, x264, Opus and orc are linked statically
+installation.  GStreamer 1.26, glib, x264, Opus, and orc are linked statically
 from a custom "gst-full" build that contains only the plugins wlcast uses.  The
 binary then needs only these on the target machine: glibc, libpipewire-0.3,
-libva and libva-drm (plus libdrm and libgcc_s, which those and every Debian
+libva, and libva-drm (plus libdrm and libgcc_s, which those and every Debian
 system already provide).
 
 Build dependencies:
@@ -242,7 +242,7 @@ wlcast
 
 `wlcast --test-pattern` publishes a generated pattern instead of capturing the
 desktop: a white flash and a 1 kHz beep at the start of every second.  It's
-useful for checking MediaMTX, the network path and A/V sync without a portal.
+useful for checking MediaMTX, the network path, and A/V sync without a portal.
 `tools/syncmeter.py` reads that stream back and reports the audio-to-video
 offset (it needs `python3-gi` and `gstreamer1.0-libav`).
 
@@ -264,7 +264,7 @@ Options (each can also be set through the environment variable shown in
 | `--audio-bitrate` | 128000 | Opus bit/s |
 | `--audio-delay-ms` | 0 | Positive delays audio, negative delays video |
 | `--encoder` | `auto` | `auto`, `va-lp-cbr`, `va-lp-cqp`, `va-cbr`, `va-cqp`, `x264` |
-| `--capture` | `auto` | `auto`, `ext`, `wlr` or `portal` (see above) |
+| `--capture` | `auto` | `auto`, `ext`, `wlr`, or `portal` (see above) |
 | `--output` | first output | Output to capture, by name (e.g. `HDMI-A-1`); not used with the portal |
 | `--cursor` | `true` | Draw the mouse cursor |
 | `--audio` | `true` | Capture system audio; `false` sends silence |

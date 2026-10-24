@@ -9,7 +9,7 @@
 #   --allow-dirty  package even with uncommitted changes (for testing)
 #
 # Needs gst-full (scripts/build-gst-full.sh), cargo-about
-# (`cargo install --locked --features cli cargo-about`) and Rust
+# (`cargo install --locked --features cli cargo-about`), and Rust
 # RELEASE_RUST (default below, override in the environment): either as the
 # default rustc or installed with rustup under that version's name.  Other
 # builds use whatever Rust you have.
@@ -18,7 +18,7 @@
 # shared libraries, a glibc requirement no newer than GLIBC_MAX (default
 # 2.39, override in the environment), `--version` matching Cargo.toml, and a
 # test-pattern run that gets as far as picking an encoder.  The tarball holds
-# the binary, LICENSE, README.md, mediamtx.yml and THIRD_PARTY_LICENSES.txt.
+# the binary, LICENSE, README.md, mediamtx.yml, and THIRD_PARTY_LICENSES.txt.
 set -eu
 
 ALLOW_DIRTY=
@@ -146,7 +146,7 @@ EOF
   done
   cat <<EOF
 
-Rust crates, compiled in: their names, versions and licenses are listed in
+Rust crates, compiled in: their names, versions, and licenses are listed in
 the second part of this file.  Their source is on https://crates.io.
 
 ================================================================================

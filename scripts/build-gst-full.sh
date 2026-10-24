@@ -2,14 +2,14 @@
 # Build the static "gst-full" GStreamer that `cargo static-gst` links.
 #
 # Usage: scripts/build-gst-full.sh [WORKDIR [VERSION]]
-#   WORKDIR  holds the source, build and install trees (created if needed;
+#   WORKDIR  holds the source, build, and install trees (created if needed;
 #            default target/gst-full in this crate)
 #   VERSION  GStreamer release tag (default 1.26.11)
 #
 # Then build wlcast with `cargo static-gst`, which looks in target/gst-full
 # by default; for another WORKDIR, set PKG_CONFIG_PATH=WORKDIR/prefix/lib/pkgconfig.
 #
-# Only the plugins wlcast uses are built.  glib, orc, opus and x264 are built
+# Only the plugins wlcast uses are built.  glib, orc, opus, and x264 are built
 # from meson subprojects and linked statically, so the result doesn't
 # depend on the build host's -dev packages; libva stays a shared library.
 set -eu
