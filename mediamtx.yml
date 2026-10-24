@@ -1,0 +1,36 @@
+# MediaMTX config for wlcast (tested with MediaMTX v1.21.2).
+#
+# wlcast publishes RTSP to rtsp://127.0.0.1:8554/screen; MediaMTX serves it
+# to browsers over WebRTC. Viewer page: http://<host>:8889/screen
+#
+# There is no authentication here: access control is expected to come from
+# outside (an SSH tunnel). RTSP listens on loopback only, but the WebRTC
+# ports listen on all interfaces, for direct LAN viewing.
+logLevel: info
+
+# Everything wlcast doesn't use is off.
+api: no
+metrics: no
+pprof: no
+playback: no
+rtmp: no
+hls: no
+srt: no
+moq: no
+
+rtsp: yes
+rtspAddress: 127.0.0.1:8554
+rtspTransports: [tcp]
+
+webrtc: yes
+webrtcAddress: :8889
+# UDP is for direct LAN viewing; TCP is what travels through an SSH tunnel.
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: :8190
+webrtcIPsFromInterfaces: yes
+# Advertised so a browser at the other end of `ssh -L` can reach the TCP port.
+webrtcAdditionalHosts: [127.0.0.1]
+webrtcICEServers2: []
+
+paths:
+  screen:
