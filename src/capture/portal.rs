@@ -8,6 +8,9 @@
 use std::fs;
 use std::os::fd::OwnedFd;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use std::thread;
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow};
@@ -16,7 +19,9 @@ use ashpd::desktop::Session;
 use ashpd::desktop::screencast::{
     CursorMode, Screencast, SelectSourcesOptions, SourceType, StartCastOptions,
 };
-use futures_lite::future::block_on;
+use async_io::Timer;
+use futures_lite::future::{FutureExt, block_on};
+use futures_lite::stream::StreamExt;
 use log::{info, warn};
 
 use super::{VideoBackend, pwvideo};
@@ -50,10 +55,12 @@ impl VideoBackend for Portal {
         let mut running = Running::new();
         // Stop actions run in reverse order: the PipeWire stream stops
         // before the session closes.
-        let session = opened.session;
+        let session = Arc::new(opened.session);
+        let closer = session.clone();
         running.on_stop(move || {
-            let _ = block_on(session.close());
+            let _ = block_on(closer.close());
         });
+        watch_closed(&mut running, session, feed.clone());
         pwvideo::start(&mut running, opened.fd, opened.node, cfg, feed.clone())?;
         running.keepalive(
             &feed,
@@ -61,6 +68,43 @@ impl VideoBackend for Portal {
         );
         Ok(running)
     }
+}
+
+/// Treats the portal closing the session (the user pressed "Stop sharing")
+/// as a request to stop, unless we're the ones stopping.
+fn watch_closed(running: &mut Running, session: Arc<Session<Screencast>>, feed: Feed) {
+    let stop = running.stop_flag();
+    let t = thread::Builder::new()
+        .name("portal-closed".into())
+        .spawn(move || {
+            block_on(async {
+                let mut closed = match session.receive_closed().await {
+                    Ok(s) => Box::pin(s),
+                    Err(e) => {
+                        warn!("portal: can't watch for the session closing: {e}");
+                        return;
+                    }
+                };
+                loop {
+                    let next = async { Some(closed.next().await) };
+                    let tick = async {
+                        Timer::after(Duration::from_millis(100)).await;
+                        None
+                    };
+                    match next.or(tick).await {
+                        Some(Some(_)) if !stop.load(Ordering::SeqCst) => {
+                            feed.request_stop("screen sharing was stopped from the desktop");
+                            return;
+                        }
+                        Some(_) => return,
+                        None if stop.load(Ordering::SeqCst) => return,
+                        None => {}
+                    }
+                }
+            })
+        })
+        .expect("spawn portal watcher thread");
+    running.add_thread(t);
 }
 
 struct Opened {

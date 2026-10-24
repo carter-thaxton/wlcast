@@ -24,11 +24,20 @@ pub fn clock() -> gst::Clock {
 #[derive(Clone, Default)]
 pub struct Feed(Arc<Mutex<State>>);
 
+/// Why a source stopped.
+#[derive(Clone, Debug)]
+pub enum Stop {
+    /// Something broke; restart and recover.
+    Failed(String),
+    /// The user stopped it (e.g. "Stop sharing" in the desktop); exit.
+    Requested(String),
+}
+
 #[derive(Default)]
 struct State {
     caps: Option<gst::Caps>,
     target: Option<Target>,
-    failed: Option<String>,
+    stopped: Option<Stop>,
     /// Last buffer pushed and its capture time, for keepalive repeats.
     last: Option<(gst::Buffer, gst::ClockTime)>,
 }
@@ -84,13 +93,20 @@ impl Feed {
     /// Records a fatal source error; the supervisor restarts the capture.
     pub fn fail(&self, msg: impl Into<String>) {
         let mut st = self.state();
-        if st.failed.is_none() {
-            st.failed = Some(msg.into());
+        if st.stopped.is_none() {
+            st.stopped = Some(Stop::Failed(msg.into()));
         }
     }
 
-    pub fn failure(&self) -> Option<String> {
-        self.state().failed.clone()
+    /// Records that the user asked the capture to stop; wlcast exits. This
+    /// overrides a failure, which a stop can cause on the way.
+    pub fn request_stop(&self, msg: impl Into<String>) {
+        self.state().stopped = Some(Stop::Requested(msg.into()));
+    }
+
+    /// Why the source stopped, if it has.
+    pub fn stopped(&self) -> Option<Stop> {
+        self.state().stopped.clone()
     }
 
     /// Starts feeding a pipeline's appsrc. Call once the pipeline is PLAYING.

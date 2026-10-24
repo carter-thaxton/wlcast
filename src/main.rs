@@ -16,6 +16,7 @@ use log::{error, info, warn};
 
 use crate::capture::Capture;
 use crate::config::Config;
+use crate::feed::Stop;
 use crate::pipeline::{EncoderMode, NullOnDrop};
 
 /// Restart backoff doubles from MIN to MAX, and resets once things have run
@@ -24,6 +25,8 @@ const BACKOFF_MIN: Duration = Duration::from_secs(1);
 const BACKOFF_MAX: Duration = Duration::from_secs(10);
 const STABLE: Duration = Duration::from_secs(30);
 const EOS_TIMEOUT: Duration = Duration::from_secs(2);
+/// How long a capture failure may take to turn into a requested stop.
+const STOP_GRACE: Duration = Duration::from_secs(1);
 
 fn main() -> ExitCode {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -63,9 +66,10 @@ unsafe extern "C" {
 /// Why a pipeline session ended.
 enum Ended {
     Shutdown,
-    /// The capture failed (PipeWire restart, portal session closed, output
-    /// gone): restart capture and pipeline.
-    Capture(String),
+    /// The capture stopped: on failure (PipeWire restart, output gone),
+    /// restart capture and pipeline; on request (the user stopped sharing),
+    /// exit.
+    Capture(Stop),
     /// The pipeline failed (RTSP server gone, ...): restart the pipeline only.
     Pipeline(anyhow::Error),
 }
@@ -85,7 +89,15 @@ fn supervise(cfg: &Config, mode: EncoderMode, shutdown: &AtomicBool) {
         loop {
             match session(cfg, mode, &capture, shutdown) {
                 Ended::Shutdown => return,
-                Ended::Capture(e) => {
+                Ended::Capture(Stop::Requested(why)) => {
+                    info!("{why}; exiting");
+                    return;
+                }
+                Ended::Capture(Stop::Failed(e)) => {
+                    if let Some(Stop::Requested(why)) = capture.settle(STOP_GRACE) {
+                        info!("{why}; exiting");
+                        return;
+                    }
                     warn!("capture failed: {e}");
                     break;
                 }
@@ -147,8 +159,8 @@ fn session(cfg: &Config, mode: EncoderMode, capture: &Capture, shutdown: &Atomic
         if shutdown.load(Ordering::SeqCst) {
             break Ended::Shutdown;
         }
-        if let Some(e) = capture.failure() {
-            break Ended::Capture(e);
+        if let Some(stop) = capture.stopped() {
+            break Ended::Capture(stop);
         }
         // The base time is fixed once the pipeline reaches PLAYING.
         if !attached
@@ -176,7 +188,7 @@ fn session(cfg: &Config, mode: EncoderMode, capture: &Capture, shutdown: &Atomic
 
     capture.video.detach();
     capture.audio.detach();
-    if matches!(ended, Ended::Shutdown) {
+    if matches!(ended, Ended::Shutdown | Ended::Capture(Stop::Requested(_))) {
         // Clean shutdown: let the sinks see EOS so RTSP is torn down properly.
         info!("shutting down");
         let _ = stream.video.end_of_stream();

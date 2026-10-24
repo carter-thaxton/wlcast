@@ -7,11 +7,13 @@ mod pwaudio;
 mod pwvideo;
 mod testsrc;
 
+use std::time::{Duration, Instant};
+
 use anyhow::Result;
 use log::info;
 
 use crate::config::Config;
-use crate::feed::{Feed, Running};
+use crate::feed::{Feed, Running, Stop};
 
 /// A way of capturing the screen. Every backend pushes raw frames into the
 /// video feed, timestamped on [`crate::feed::clock`].
@@ -56,8 +58,25 @@ impl Capture {
         })
     }
 
-    /// Why capture stopped working, if it has.
-    pub fn failure(&self) -> Option<String> {
-        self.video.failure().or_else(|| self.audio.failure())
+    /// Why capture stopped, if it has. A requested stop wins over a failure.
+    pub fn stopped(&self) -> Option<Stop> {
+        match (self.video.stopped(), self.audio.stopped()) {
+            (Some(r @ Stop::Requested(_)), _) | (_, Some(r @ Stop::Requested(_))) => Some(r),
+            (v, a) => v.or(a),
+        }
+    }
+
+    /// After a failure, waits up to `grace` in case it turns into a
+    /// requested stop: a user's stop can break the stream slightly before
+    /// the portal reports that the session was closed.
+    pub fn settle(&self, grace: Duration) -> Option<Stop> {
+        let deadline = Instant::now() + grace;
+        while Instant::now() < deadline {
+            if let Some(r @ Stop::Requested(_)) = self.stopped() {
+                return Some(r);
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        self.stopped()
     }
 }
