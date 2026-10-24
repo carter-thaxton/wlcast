@@ -167,6 +167,11 @@ Rust crates. The notices need
 [cargo-about](https://github.com/EmbarkStudios/cargo-about):
 `cargo install --locked --features cli cargo-about`.
 
+Release builds use a fixed Rust version, set by `RELEASE_RUST` in the
+script, so that both architectures and later rebuilds use the same compiler.
+It must be installed with rustup (`rustup toolchain install <version>`).
+Other builds use whatever Rust version you have (1.88 or newer).
+
 Release binaries are built natively on each architecture, not cross-compiled.
 
 ### Runtime requirements

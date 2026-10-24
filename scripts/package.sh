@@ -8,8 +8,10 @@
 #                  (default target/gst-full in this crate)
 #   --allow-dirty  package even with uncommitted changes (for testing)
 #
-# Needs gst-full (scripts/build-gst-full.sh) and cargo-about
-# (`cargo install --locked --features cli cargo-about`).
+# Needs gst-full (scripts/build-gst-full.sh), cargo-about
+# (`cargo install --locked --features cli cargo-about`) and, through rustup,
+# the release toolchain RELEASE_RUST (default below, override in the
+# environment). Other builds use whatever Rust you have.
 #
 # The binary is built with `cargo static-gst` and checked: only the expected
 # shared libraries, a glibc requirement no newer than GLIBC_MAX (default
@@ -21,7 +23,7 @@ set -eu
 ALLOW_DIRTY=
 while [ $# -gt 0 ]; do
   case "$1" in
-    -h|--help) sed -n '2,18s/^# \{0,1\}//p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,20s/^# \{0,1\}//p' "$0"; exit 0 ;;
     --allow-dirty) ALLOW_DIRTY=1; shift ;;
     -*) echo "unknown option: $1" >&2; exit 2 ;;
     *) break ;;
@@ -30,6 +32,7 @@ done
 CRATE=$(realpath "$(dirname "$0")/..")
 WORK=$(realpath -m "${1:-$CRATE/target/gst-full}")
 GLIBC_MAX=${GLIBC_MAX:-2.39}
+RELEASE_RUST=${RELEASE_RUST:-1.99.1}
 cd "$CRATE"
 
 die() { echo "package: $*" >&2; exit 1; }
@@ -56,6 +59,11 @@ SUBPROJECTS=$WORK/gstreamer-$GST/subprojects
 BUILT=$WORK/build-$GST/subprojects
 command -v cargo-about >/dev/null ||
   die "cargo-about missing: cargo install --locked --features cli cargo-about"
+command -v rustup >/dev/null || die "needs rustup, for the release toolchain"
+rustup toolchain list | grep -q "^$RELEASE_RUST-" ||
+  die "Rust $RELEASE_RUST missing: rustup toolchain install $RELEASE_RUST"
+export RUSTUP_TOOLCHAIN=$RELEASE_RUST
+rustc=$(rustc --version)
 
 cargo static-gst
 BIN=target/static/release/wlcast
@@ -174,4 +182,4 @@ tar -C target/dist --sort=name --owner=0 --group=0 --numeric-owner \
 (cd target/dist && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")
 
 echo "package: target/dist/$NAME.tar.gz"
-echo "package:   glibc >= $glibc; encoder here: $encoder"
+echo "package:   $rustc; glibc >= $glibc; encoder here: $encoder"
