@@ -30,3 +30,9 @@ static-gst = ["dep:pkg-config"]
 
 [build-dependencies]
 pkg-config = { version = "0.3", optional = true }
+
+[profile.release]
+# Small binaries for small devices: 23M -> 17M for the static build.
+strip = true
+lto = true
+codegen-units = 1
