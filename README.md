@@ -1,8 +1,9 @@
 # wlcast
 
-wlcast streams a live Wayland desktop, with video and system audio, to web
-browsers.  It puts readable text, A/V sync, and low latency ahead of picture
-quality.  It's one-way: viewers watch and listen, with no input handling.
+Stream live Wayland desktop as RTSP.  wlcast captures the screen and system
+audio and publishes them, so viewers can watch and listen in a web browser.
+It puts readable text, A/V sync, and low latency ahead of picture quality.
+It's one-way, with no input handling.
 
 It's intended for small Wayland environments, such as appliances, kiosks,
 and embedded or headless devices running a lightweight compositor.  That's
