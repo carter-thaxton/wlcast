@@ -1,4 +1,4 @@
-//! The default sink's monitor, captured with PipeWire. Managed by
+//! The default sink's monitor, captured with PipeWire.  Managed by
 //! super::audio, which fills gaps with silence and retries on failure.
 
 use anyhow::{Context, Result};
@@ -21,7 +21,7 @@ struct State {
 }
 
 /// Starts capturing the default sink's monitor, or the sink named `target`,
-/// into `feed`, timestamped on `timeline`. Failures are reported on `feed`.
+/// into `feed`, timestamped on `timeline`.  Failures are reported on `feed`.
 pub fn start(
     running: &mut Running,
     target: Option<String>,

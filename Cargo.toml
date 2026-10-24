@@ -24,7 +24,7 @@ wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 wayland-protocols-wlr = { version = "0.3", features = ["client"] }
 
 [features]
-# Production: link a static "gst-full" GStreamer build. Build with the
+# Production: link a static "gst-full" GStreamer build.  Build with the
 # `cargo static-gst` alias (.cargo/config.toml, .cargo/static-gst.toml).
 static-gst = ["dep:pkg-config"]
 

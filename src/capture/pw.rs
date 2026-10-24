@@ -13,7 +13,7 @@ use crate::feed::{Feed, Running};
 
 /// Runs a PipeWire main loop on its own thread until `running` stops.
 /// `setup` connects and creates the streams, returning whatever must live as
-/// long as the loop. Returns once setup has finished, with its error if any.
+/// long as the loop.  Returns once setup has finished, with its error if any.
 pub fn spawn<F>(name: &str, running: &mut Running, setup: F) -> Result<()>
 where
     F: FnOnce(&pw::main_loop::MainLoopRc) -> Result<Box<dyn Any>> + Send + 'static,
@@ -50,7 +50,7 @@ where
 }
 
 /// Reports a core error (e.g. the PipeWire daemon going away) as a feed
-/// failure. Keep the returned listener alive.
+/// failure.  Keep the returned listener alive.
 pub fn watch_core(core: &pw::core::CoreRc, feed: &Feed, what: &'static str) -> pw::core::Listener {
     let feed = feed.clone();
     core.add_listener_local()

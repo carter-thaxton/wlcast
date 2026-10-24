@@ -1,5 +1,5 @@
 # cargo-about configuration for the Rust part of THIRD_PARTY_LICENSES
-# (see scripts/package.sh). Order is preference: for "MIT OR Apache-2.0"
+# (see scripts/package.sh).  Order is preference: for "MIT OR Apache-2.0"
 # the first accepted license is used.
 accepted = [
     "MIT",

@@ -94,7 +94,7 @@ impl EncoderMode {
     }
 
     /// A warning when the one rate option the user set is the one this mode
-    /// ignores. Setting both is fine: either kind of mode may be picked.
+    /// ignores.  Setting both is fine: either kind of mode may be picked.
     fn ignored_warning(self, cfg: &Config) -> Option<String> {
         if self.is_cqp() && cfg.bitrate_set && !cfg.qp_set {
             Some(format!(
@@ -313,7 +313,7 @@ fn run_probe(cfg: &Config, mode: EncoderMode) -> Result<Duration> {
     bail!("timed out after {} s", PROBE_TIMEOUT.as_secs())
 }
 
-/// A built streaming pipeline. Sources set the caps on `video` and `audio`
+/// A built streaming pipeline.  Sources set the caps on `video` and `audio`
 /// and push timestamped buffers into them.
 pub struct Stream {
     pub pipeline: gst::Pipeline,
@@ -359,10 +359,10 @@ pub fn build(cfg: &Config, mode: EncoderMode) -> Result<Stream> {
     })
 }
 
-/// The last queue on a branch, just before the sink. To delay a branch,
+/// The last queue on a branch, just before the sink.  To delay a branch,
 /// `build` shifts the running time on the queue's src pad (moving the RTP
 /// timestamps) and the queue holds the data back by the same amount (so it
-/// is also sent that much later). With the test pattern, measured through
+/// is also sent that much later).  With the test pattern, measured through
 /// MediaMTX, either one alone left the offset at zero.
 fn delay_queue(name: &str, ms: u64) -> String {
     if ms == 0 {

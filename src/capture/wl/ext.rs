@@ -1,5 +1,5 @@
 //! ext-image-copy-capture-v1: a capture session on an output's image
-//! capture source. The session announces buffer constraints; each frame
+//! capture source.  The session announces buffer constraints; each frame
 //! copies into a buffer we attach.
 
 use anyhow::{Context, Result};
@@ -59,7 +59,7 @@ impl Ext {
         })
     }
 
-    /// Captures into `buffer`. A fresh buffer is marked fully damaged; after
+    /// Captures into `buffer`.  A fresh buffer is marked fully damaged; after
     /// that the compositor only needs to copy what changed, since we never
     /// write to the buffer ourselves.
     pub fn capture(&mut self, qh: &QueueHandle<State>, buffer: &ShmBuffer, fresh: bool) {

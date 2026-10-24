@@ -1,9 +1,9 @@
 //! The link between a capture source and whichever pipeline is running.
 //!
 //! Sources outlive pipelines: an RTSP reconnect rebuilds the pipeline but
-//! keeps the portal session and PipeWire streams. Sources timestamp buffers
+//! keeps the portal session and PipeWire streams.  Sources timestamp buffers
 //! with the system clock (which every pipeline uses), and the feed converts
-//! that to the current pipeline's running time. Buffers pushed while no
+//! that to the current pipeline's running time.  Buffers pushed while no
 //! pipeline is attached are dropped.
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -72,7 +72,7 @@ impl Feed {
         }
     }
 
-    /// Re-pushes the last buffer if nothing was pushed for `idle`. Damage-
+    /// Re-pushes the last buffer if nothing was pushed for `idle`.  Damage-
     /// driven capture sends nothing while the screen is still, but encoders
     /// and newly joined viewers need a steady stream of frames.
     pub fn repeat_if_idle(&self, idle: gst::ClockTime) {
@@ -98,7 +98,7 @@ impl Feed {
         }
     }
 
-    /// Records that the user asked the capture to stop; wlcast exits. This
+    /// Records that the user asked the capture to stop; wlcast exits.  This
     /// overrides a failure, which a stop can cause on the way.
     pub fn request_stop(&self, msg: impl Into<String>) {
         self.state().stopped = Some(Stop::Requested(msg.into()));
@@ -114,7 +114,7 @@ impl Feed {
         self.state().stopped = None;
     }
 
-    /// Starts feeding a pipeline's appsrc. Call once the pipeline is PLAYING.
+    /// Starts feeding a pipeline's appsrc.  Call once the pipeline is PLAYING.
     pub fn attach(&self, src: gst_app::AppSrc, base_time: gst::ClockTime) {
         let mut st = self.state();
         if let Some(caps) = &st.caps {
@@ -151,7 +151,7 @@ impl Target {
     }
 }
 
-/// A running source. Stops when dropped.
+/// A running source.  Stops when dropped.
 pub struct Running {
     stop: Arc<AtomicBool>,
     threads: Vec<JoinHandle<()>>,

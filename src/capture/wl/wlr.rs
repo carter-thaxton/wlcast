@@ -48,7 +48,7 @@ impl Wlr {
         );
     }
 
-    /// Copies into `buffer`. A fresh buffer is filled right away; after that
+    /// Copies into `buffer`.  A fresh buffer is filled right away; after that
     /// the copy waits until the screen changes.
     pub fn copy(&mut self, buffer: &ShmBuffer, fresh: bool) {
         if let Some(f) = &self.frame {

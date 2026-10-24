@@ -2,7 +2,7 @@
 //! ...): ext-image-copy-capture-v1, or wlr-screencopy-unstable-v1 (v3) where
 //! that's all there is.
 //!
-//! Both copy an output into a shared-memory buffer we provide. The compositor
+//! Both copy an output into a shared-memory buffer we provide.  The compositor
 //! completes a capture only once something on screen has changed, and we ask
 //! for at most --fps captures per second; the feed's keepalive repeats frames
 //! while the screen is still.
@@ -49,7 +49,7 @@ pub enum Protocol {
     Wlr,
 }
 
-/// Which native capture protocol the compositor offers, if any. `None` also
+/// Which native capture protocol the compositor offers, if any.  `None` also
 /// when there's no Wayland connection.
 pub fn probe() -> Option<Protocol> {
     let conn = Connection::connect_to_env().ok()?;
@@ -324,7 +324,7 @@ impl Capture {
         }
     }
 
-    /// Starts a capture. Returns false if it has to wait (ext: constraints
+    /// Starts a capture.  Returns false if it has to wait (ext: constraints
     /// not known yet).
     fn request(&mut self) -> Result<bool> {
         match &mut self.protocol {
@@ -367,7 +367,7 @@ impl Capture {
         Ok(())
     }
 
-    /// Makes sure the buffer matches the constraints. Returns true if it was
+    /// Makes sure the buffer matches the constraints.  Returns true if it was
     /// (re)created, in which case its contents are undefined.
     fn ensure_buffer(
         buffer: &mut Option<ShmBuffer>,

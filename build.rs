@@ -5,7 +5,7 @@ fn main() {
 
 /// Links the static gst-full build that PKG_CONFIG_PATH points at, by
 /// default target/gst-full (see scripts/build-gst-full.sh and
-/// .cargo/static-gst.toml). The gstreamer -sys crates link the core libraries from
+/// .cargo/static-gst.toml).  The gstreamer -sys crates link the core libraries from
 /// the same prefix; this adds the plugins and gst_init_static_plugins().
 /// Plugin .pc files live in a subdirectory of libdir (gstreamer-full-1.0.pc
 /// requires them), so that goes on the pkg-config path too.

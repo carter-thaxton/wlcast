@@ -1,4 +1,4 @@
-//! Capture sources. A video backend fills the video feed; system audio (or
+//! Capture sources.  A video backend fills the video feed; system audio (or
 //! the test pattern) fills the audio feed.
 
 mod audio;
@@ -17,7 +17,7 @@ use log::info;
 use crate::config::{CaptureChoice, Config};
 use crate::feed::{Feed, Running, Stop};
 
-/// A way of capturing the screen. Every backend pushes raw frames into the
+/// A way of capturing the screen.  Every backend pushes raw frames into the
 /// video feed, timestamped on [`crate::feed::clock`].
 pub trait VideoBackend {
     fn name(&self) -> &'static str;
@@ -78,7 +78,7 @@ impl Capture {
         })
     }
 
-    /// Why capture stopped, if it has. Only video counts: audio recovers on
+    /// Why capture stopped, if it has.  Only video counts: audio recovers on
     /// its own (see audio.rs).
     pub fn stopped(&self) -> Option<Stop> {
         self.video.stopped()

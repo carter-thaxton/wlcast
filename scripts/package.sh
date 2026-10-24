@@ -11,13 +11,13 @@
 # Needs gst-full (scripts/build-gst-full.sh), cargo-about
 # (`cargo install --locked --features cli cargo-about`) and Rust
 # RELEASE_RUST (default below, override in the environment): either as the
-# default rustc or installed with rustup under that version's name. Other
+# default rustc or installed with rustup under that version's name.  Other
 # builds use whatever Rust you have.
 #
 # The binary is built with `cargo static-gst` and checked: only the expected
 # shared libraries, a glibc requirement no newer than GLIBC_MAX (default
 # 2.39, override in the environment), `--version` matching Cargo.toml, and a
-# test-pattern run that gets as far as picking an encoder. The tarball holds
+# test-pattern run that gets as far as picking an encoder.  The tarball holds
 # the binary, LICENSE, README.md, mediamtx.yml and THIRD_PARTY_LICENSES.txt.
 set -eu
 
@@ -133,12 +133,12 @@ mkdir -p "$STAGE"
 notices=$STAGE/THIRD_PARTY_LICENSES.txt
 {
   cat <<EOF
-wlcast $VERSION includes the third-party software listed below. wlcast itself
+wlcast $VERSION includes the third-party software listed below.  wlcast itself
 is licensed under the GPL-3.0-or-later (see LICENSE).
 
-C libraries, linked statically. They are built from the GStreamer $GST
+C libraries, linked statically.  They are built from the GStreamer $GST
 release by scripts/build-gst-full.sh, which fetches each subproject at the
-version pinned by GStreamer's subprojects/*.wrap files. Source code:
+version pinned by GStreamer's subprojects/*.wrap files.  Source code:
 
 EOF
   components | while IFS='|' read -r _ what lic src _; do
@@ -147,7 +147,7 @@ EOF
   cat <<EOF
 
 Rust crates, compiled in: their names, versions and licenses are listed in
-the second part of this file. Their source is on https://crates.io.
+the second part of this file.  Their source is on https://crates.io.
 
 ================================================================================
 Part 1: license texts of the C libraries

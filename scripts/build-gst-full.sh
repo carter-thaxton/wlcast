@@ -9,7 +9,7 @@
 # Then build wlcast with `cargo static-gst`, which looks in target/gst-full
 # by default; for another WORKDIR, set PKG_CONFIG_PATH=WORKDIR/prefix/lib/pkgconfig.
 #
-# Only the plugins wlcast uses are built. glib, orc, opus and x264 are built
+# Only the plugins wlcast uses are built.  glib, orc, opus and x264 are built
 # from meson subprojects and linked statically, so the result doesn't
 # depend on the build host's -dev packages; libva stays a shared library.
 set -eu
@@ -46,9 +46,9 @@ else
   rm -rf "$BUILD"
 fi
 # auto_features=disabled turns off everything optional, here and in the
-# subprojects; the plugins above are then enabled one by one. It also
+# subprojects; the plugins above are then enabled one by one.  It also
 # turns off SIMD, so that's re-enabled: orc (videoconvertscale and
-# audioconvert), x264's assembly, opus intrinsics. tools=enabled builds
+# audioconvert), x264's assembly, opus intrinsics.  tools=enabled builds
 # orc's orcc (orc:tools yields to it), which -Dorc=enabled requires; it
 # also builds gst-inspect-1.0 etc. against gst-full.
 meson setup $reconfigure "$BUILD" "$SRC" \
@@ -81,7 +81,7 @@ meson setup $reconfigure "$BUILD" "$SRC" \
 
 # The gstreamer -sys crates bundle copies of these static libraries, so a
 # changed gst-full needs the whole static wlcast build redone, not just a
-# relink. Detect a change by the main library's checksum.
+# relink.  Detect a change by the main library's checksum.
 LIB=$PREFIX/lib/libgstreamer-full-1.0.a
 sum() { [ -f "$LIB" ] && cksum < "$LIB" || echo none; }
 before=$(sum)

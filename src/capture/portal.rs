@@ -2,7 +2,7 @@
 //! compositors without a capture protocol we speak (GNOME).
 //!
 //! The portal is asked to persist the permission; the restore token it
-//! returns is saved, so the picker only appears the first time. Tokens are
+//! returns is saved, so the picker only appears the first time.  Tokens are
 //! single use: every session returns a new one, which replaces the old.
 
 use std::fs;

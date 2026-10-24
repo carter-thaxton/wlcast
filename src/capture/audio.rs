@@ -1,6 +1,6 @@
-//! System audio that never holds up video. PipeWire captures the default
+//! System audio that never holds up video.  PipeWire captures the default
 //! sink's monitor when it can; silence fills in when it can't: PipeWire
-//! missing or restarting, no sink to monitor, or --audio false. The stream
+//! missing or restarting, no sink to monitor, or --audio false.  The stream
 //! always has an audio track, so its format stays the same throughout.
 //!
 //! Real audio and silence share one timeline, so timestamps stay continuous
@@ -31,7 +31,7 @@ const TICK: Duration = Duration::from_millis(10);
 /// Real-audio timestamps follow the sample count, and resync to arrival time
 /// when they drift further than MAX_DRIFT from it for RESYNC_AFTER chunks in
 /// a row (xruns, graph restarts, clock drift), or by more than MAX_JUMP at
-/// once. A single late callback doesn't count: the samples weren't late.
+/// once.  A single late callback doesn't count: the samples weren't late.
 const MAX_DRIFT: gst::ClockTime = gst::ClockTime::from_mseconds(20);
 const RESYNC_AFTER: u32 = 10;
 const MAX_JUMP: gst::ClockTime = gst::ClockTime::from_mseconds(200);

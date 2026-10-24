@@ -99,7 +99,7 @@ fn enum_format(cfg: &Config) -> spa::pod::Object {
         spa::param::ParamType::EnumFormat,
         property!(FormatProperties::MediaType, Id, MediaType::Video),
         property!(FormatProperties::MediaSubtype, Id, MediaSubtype::Raw),
-        // Keep in sync with FORMATS. The first is the default.
+        // Keep in sync with FORMATS.  The first is the default.
         property!(
             FormatProperties::VideoFormat,
             Choice,

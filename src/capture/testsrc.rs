@@ -1,5 +1,5 @@
 //! Generated A/V sync pattern, pushed through the same feeds as real
-//! capture. At the start of every second (on the clock) the frame flashes
+//! capture.  At the start of every second (on the clock) the frame flashes
 //! white and a 1 kHz beep plays, both for FLASH; a bar sweeps across the
 //! frame once per second to show motion and frame pacing.
 

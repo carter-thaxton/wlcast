@@ -1,4 +1,4 @@
-# Cargo config for the static-gst feature. Use the alias, from the crate root:
+# Cargo config for the static-gst feature.  Use the alias, from the crate root:
 #   scripts/build-gst-full.sh    # once; builds gst-full in target/gst-full
 #   cargo static-gst             # binary in target/static/release/
 # For a gst-full installed elsewhere, set PKG_CONFIG_PATH=<prefix>/lib/pkgconfig;
@@ -6,7 +6,7 @@
 #
 # The gstreamer -sys crates find gst-full's own .pc files through
 # PKG_CONFIG_PATH; the LINK settings make them link those libraries
-# statically. PipeWire and libva stay shared.
+# statically.  PipeWire and libva stay shared.
 [env]
 # Relative to the crate root (cargo resolves it against the parent of the
 # directory holding this file, i.e. of .cargo/).

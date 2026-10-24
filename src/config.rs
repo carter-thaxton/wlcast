@@ -57,7 +57,7 @@ pub struct Config {
     pub capture: CaptureChoice,
 
     /// Output (monitor) to capture, by name, e.g. HDMI-A-1 [default: the
-    /// first]. Not used with the portal, which asks the user.
+    /// first].  Not used with the portal, which asks the user.
     #[arg(long, env = "WLCAST_OUTPUT")]
     pub output: Option<String>,
 
