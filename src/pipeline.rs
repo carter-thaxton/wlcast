@@ -79,10 +79,12 @@ impl EncoderMode {
         self != Self::X264
     }
 
+    /// VA modes convert with `vapostproc` when it exists and with
+    /// `videoconvertscale` otherwise (see `va_input`), so neither is listed.
     fn elements(self) -> &'static [&'static str] {
         match self {
-            Self::VaLpCbr | Self::VaLpCqp => &["vapostproc", "vah264lpenc"],
-            Self::VaCbr | Self::VaCqp => &["vapostproc", "vah264enc"],
+            Self::VaLpCbr | Self::VaLpCqp => &["videoconvertscale", "vah264lpenc"],
+            Self::VaCbr | Self::VaCqp => &["videoconvertscale", "vah264enc"],
             Self::X264 => &["videoconvertscale", "x264enc"],
         }
     }
@@ -99,8 +101,7 @@ impl EncoderMode {
     fn chain(self, cfg: &Config) -> String {
         let (w, h, br, qp) = (cfg.width, cfg.height, cfg.bitrate, cfg.qp);
         let keyint = cfg.fps * 2;
-        let va_in =
-            format!("vapostproc ! video/x-raw(memory:VAMemory),format=NV12,width={w},height={h}");
+        let va_in = va_input(w, h);
         let common = format!("key-int-max={keyint} b-frames=0");
         let cqp = format!("rate-control=cqp qpi={qp} qpp={}", qp + 2);
         match self {
@@ -117,6 +118,20 @@ impl EncoderMode {
                  ! video/x-h264,profile=constrained-baseline"
             ),
         }
+    }
+}
+
+/// Scaling and conversion to NV12 ahead of a VA encoder: on the GPU with
+/// `vapostproc`, or in software when the driver has no video processing
+/// entrypoint (Debian's free iHD build lacks it), in which case the encoder
+/// uploads the frames itself.
+fn va_input(w: u32, h: u32) -> String {
+    if gst::ElementFactory::find("vapostproc").is_some() {
+        format!("vapostproc ! video/x-raw(memory:VAMemory),format=NV12,width={w},height={h}")
+    } else {
+        format!(
+            "videoconvertscale ! video/x-raw,format=NV12,width={w},height={h},pixel-aspect-ratio=1/1"
+        )
     }
 }
 
