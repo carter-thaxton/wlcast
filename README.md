@@ -93,27 +93,42 @@ sudo apt install --no-install-recommends nasm
 
 The system GStreamer packages aren't needed for this mode.
 
-1. Build gst-full once. The script clones GStreamer 1.26.11 into a work
-   directory of your choice, downloads the meson subprojects (glib, orc, opus,
-   x264), and installs everything into `<workdir>/prefix`. That takes a while.
+From the crate root:
+
+1. Build gst-full once:
 
    ```
-   scripts/build-gst-full.sh ~/gst-full
+   scripts/build-gst-full.sh
    ```
+
+   The script clones GStreamer 1.26.11, downloads the meson subprojects (glib,
+   orc, opus, x264), and builds and installs everything under `target/gst-full`.
+   That takes a while. Running it again only rebuilds what changed.
 
 2. Build wlcast against it:
 
    ```
-   PKG_CONFIG_PATH=~/gst-full/prefix/lib/pkgconfig cargo static-gst
+   cargo static-gst
    ```
 
-The binary is `target/static/release/wlcast`. `cargo static-gst` is a cargo
-alias (in `.cargo/config.toml`) for
-`cargo build --release --features static-gst --config static-gst.toml` with a
+The binary is `target/static/release/wlcast`. Both commands must run in the
+crate root.
+
+`cargo clean` deletes `target/gst-full` along with everything else, so the next
+static build needs gst-full rebuilt first. `cargo clean --release` or
+`cargo clean -p wlcast` leave it alone. To keep gst-full somewhere else, pass a
+directory to the script (`scripts/build-gst-full.sh ~/gst-full`) and point the
+build at it with
+`PKG_CONFIG_PATH=~/gst-full/prefix/lib/pkgconfig cargo static-gst`. An existing
+`PKG_CONFIG_PATH` always overrides the `target/gst-full` default, so unset it if
+your shell sets it for something else.
+
+`cargo static-gst` is a cargo alias (in `.cargo/config.toml`) for
+`cargo build --release --features static-gst --config .cargo/static-gst.toml` with a
 separate target directory. The feature makes `build.rs` link gst-full and
-register its plugins. `static-gst.toml` makes the gstreamer `-sys` crates link
-gst-full's libraries statically. See the comments in those files and in the
-script.
+register its plugins. `.cargo/static-gst.toml` points pkg-config at
+`target/gst-full` and makes the gstreamer `-sys` crates link gst-full's
+libraries statically. See the comments in those files and in the script.
 
 ### Runtime requirements
 

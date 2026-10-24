@@ -20,7 +20,7 @@ pipewire = "0.10.1"
 
 [features]
 # Production: link a static "gst-full" GStreamer build. Build with the
-# `cargo static-gst` alias (.cargo/config.toml, static-gst.toml).
+# `cargo static-gst` alias (.cargo/config.toml, .cargo/static-gst.toml).
 static-gst = ["dep:pkg-config"]
 
 [build-dependencies]

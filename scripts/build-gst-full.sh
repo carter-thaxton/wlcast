@@ -1,20 +1,23 @@
 #!/bin/sh
 # Build the static "gst-full" GStreamer that `cargo static-gst` links.
 #
-# Usage: scripts/build-gst-full.sh WORKDIR [VERSION]
-#   WORKDIR  holds the source, build and install trees (created if needed)
+# Usage: scripts/build-gst-full.sh [WORKDIR [VERSION]]
+#   WORKDIR  holds the source, build and install trees (created if needed;
+#            default target/gst-full in this crate)
 #   VERSION  GStreamer release tag (default 1.26.11)
 #
-# Then build wlcast with:
-#   PKG_CONFIG_PATH=WORKDIR/prefix/lib/pkgconfig cargo static-gst
+# Then build wlcast with `cargo static-gst`, which looks in target/gst-full
+# by default; for another WORKDIR, set PKG_CONFIG_PATH=WORKDIR/prefix/lib/pkgconfig.
 #
-# Only the plugins wlcast uses are built. glib, opus and x264 are built
+# Only the plugins wlcast uses are built. glib, orc, opus and x264 are built
 # from meson subprojects and linked statically, so the result doesn't
 # depend on the build host's -dev packages; libva stays a shared library.
 set -eu
 
-[ $# -ge 1 ] || { sed -n '2,13s/^# \{0,1\}//p' "$0"; exit 2; }
-WORK=$(realpath -m "$1")
+case "${1:-}" in -h|--help) sed -n '2,15s/^# \{0,1\}//p' "$0"; exit 0 ;; esac
+CRATE=$(realpath "$(dirname "$0")/..")
+DEFAULT_WORK=$CRATE/target/gst-full
+WORK=$(realpath -m "${1:-$DEFAULT_WORK}")
 VERSION=${2:-1.26.11}
 SRC=$WORK/gstreamer-$VERSION
 BUILD=$WORK/build-$VERSION
@@ -79,4 +82,8 @@ meson install -C "$BUILD" --quiet
 
 echo
 echo "Installed to $PREFIX. Build wlcast with:"
-echo "  PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig cargo static-gst"
+if [ "$WORK" = "$DEFAULT_WORK" ]; then
+  echo "  cargo static-gst"
+else
+  echo "  PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig cargo static-gst"
+fi
