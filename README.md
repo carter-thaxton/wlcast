@@ -128,9 +128,20 @@ The gst-full install also has `gst-inspect-1.0` and `gst-launch-1.0` in
 checking what the static build contains (on a VA-API machine,
 `gst-inspect-1.0 va` lists the encoders the driver supports).
 
-`cargo clean` deletes `target/gst-full` along with everything else, so the next
-static build needs gst-full rebuilt first. `cargo clean --release` or
-`cargo clean -p wlcast` leave it alone. To keep gst-full somewhere else, pass a
+Cleaning:
+
+- `cargo static-gst-clean` removes the static build (`target/static`) and keeps
+  gst-full. Plain `cargo clean`, with or without `--release` or `-p`, works on
+  the default target directory and doesn't touch the static build.
+- After gst-full changes, the whole static build has to be redone, not just
+  wlcast, because the gstreamer `-sys` crates bundle copies of gst-full's
+  static libraries. `scripts/build-gst-full.sh` does this for you: when its
+  run changes the installed gst-full, it removes `target/static`. If you change
+  gst-full some other way, run `cargo static-gst-clean`.
+- Plain `cargo clean` deletes `target/gst-full` along with everything else, so
+  the next static build needs gst-full rebuilt first.
+
+To keep gst-full somewhere else, pass a
 directory to the script (`scripts/build-gst-full.sh ~/gst-full`) and point the
 build at it with
 `PKG_CONFIG_PATH=~/gst-full/prefix/lib/pkgconfig cargo static-gst`. An existing

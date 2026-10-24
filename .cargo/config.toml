@@ -3,3 +3,7 @@
 # Separate target dir, so switching between this and a plain `cargo build`
 # doesn't rebuild everything.
 static-gst = "build --release --features static-gst --config .cargo/static-gst.toml --target-dir target/static"
+# Removes the static build (keeps target/gst-full). Needed after gst-full
+# changes: the gstreamer -sys crates bundle copies of its static libraries,
+# so they must be rebuilt too, not just wlcast.
+static-gst-clean = "clean --target-dir target/static"

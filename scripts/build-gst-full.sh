@@ -79,13 +79,29 @@ meson setup $reconfigure "$BUILD" "$SRC" \
   -Dgst-plugins-ugly:x264=enabled \
   -Dgst-rtsp-server:rtspclientsink=enabled
 
+# The gstreamer -sys crates bundle copies of these static libraries, so a
+# changed gst-full needs the whole static wlcast build redone, not just a
+# relink. Detect a change by the main library's checksum.
+LIB=$PREFIX/lib/libgstreamer-full-1.0.a
+sum() { [ -f "$LIB" ] && cksum < "$LIB" || echo none; }
+before=$(sum)
+
 meson compile -C "$BUILD"
 meson install -C "$BUILD" --quiet
 
 echo
-echo "Installed to $PREFIX. Build wlcast with:"
+echo "Installed to $PREFIX."
+changed=no
+[ "$(sum)" != "$before" ] && changed=yes
 if [ "$WORK" = "$DEFAULT_WORK" ]; then
+  if [ $changed = yes ] && [ -d "$CRATE/target/static" ]; then
+    rm -rf "$CRATE/target/static"
+    echo "gst-full changed, so the old static build (target/static) was removed."
+  fi
+  echo "Build wlcast with:"
   echo "  cargo static-gst"
 else
+  [ $changed = yes ] && echo "gst-full changed: run \`cargo static-gst-clean\` before rebuilding."
+  echo "Build wlcast with:"
   echo "  PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig cargo static-gst"
 fi
