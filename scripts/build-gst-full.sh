@@ -48,7 +48,9 @@ fi
 # auto_features=disabled turns off everything optional, here and in the
 # subprojects; the plugins above are then enabled one by one. It also
 # turns off SIMD, so that's re-enabled: orc (videoconvertscale and
-# audioconvert), x264's assembly, opus intrinsics.
+# audioconvert), x264's assembly, opus intrinsics. tools=enabled builds
+# orc's orcc (orc:tools yields to it), which -Dorc=enabled requires; it
+# also builds gst-inspect-1.0 etc. against gst-full.
 meson setup $reconfigure "$BUILD" "$SRC" \
   --prefix="$PREFIX" --libdir=lib \
   --buildtype=release --default-library=static \
@@ -59,7 +61,7 @@ meson setup $reconfigure "$BUILD" "$SRC" \
   -Dgst-full-plugins="$PLUGINS" \
   -Dbase=enabled -Dgood=enabled -Dbad=enabled -Dugly=enabled \
   -Drtsp_server=enabled -Dgpl=enabled \
-  -Dorc=enabled \
+  -Dorc=enabled -Dtools=enabled \
   -Dx264:asm=enabled -Dx264:cli=false -Dx264:bit-depth=8 \
   -Dopus:intrinsics=enabled \
   -Dgstreamer:registry=false \
