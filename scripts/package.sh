@@ -9,9 +9,10 @@
 #   --allow-dirty  package even with uncommitted changes (for testing)
 #
 # Needs gst-full (scripts/build-gst-full.sh), cargo-about
-# (`cargo install --locked --features cli cargo-about`) and, through rustup,
-# the release toolchain RELEASE_RUST (default below, override in the
-# environment). Other builds use whatever Rust you have.
+# (`cargo install --locked --features cli cargo-about`) and Rust
+# RELEASE_RUST (default below, override in the environment): either as the
+# default rustc or installed with rustup under that version's name. Other
+# builds use whatever Rust you have.
 #
 # The binary is built with `cargo static-gst` and checked: only the expected
 # shared libraries, a glibc requirement no newer than GLIBC_MAX (default
@@ -23,7 +24,7 @@ set -eu
 ALLOW_DIRTY=
 while [ $# -gt 0 ]; do
   case "$1" in
-    -h|--help) sed -n '2,20s/^# \{0,1\}//p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,21s/^# \{0,1\}//p' "$0"; exit 0 ;;
     --allow-dirty) ALLOW_DIRTY=1; shift ;;
     -*) echo "unknown option: $1" >&2; exit 2 ;;
     *) break ;;
@@ -59,10 +60,13 @@ SUBPROJECTS=$WORK/gstreamer-$GST/subprojects
 BUILT=$WORK/build-$GST/subprojects
 command -v cargo-about >/dev/null ||
   die "cargo-about missing: cargo install --locked --features cli cargo-about"
-command -v rustup >/dev/null || die "needs rustup, for the release toolchain"
-rustup toolchain list | grep -q "^$RELEASE_RUST-" ||
-  die "Rust $RELEASE_RUST missing: rustup toolchain install $RELEASE_RUST"
-export RUSTUP_TOOLCHAIN=$RELEASE_RUST
+# Use the default rustc if it's the release version (rustup may call it
+# "stable"), else the toolchain installed under that version's name.
+if [ "$(rustc --version 2>/dev/null | cut -d' ' -f2)" != "$RELEASE_RUST" ]; then
+  command -v rustup >/dev/null && rustup toolchain list | grep -q "^$RELEASE_RUST-" ||
+    die "needs Rust $RELEASE_RUST: rustup toolchain install $RELEASE_RUST"
+  export RUSTUP_TOOLCHAIN=$RELEASE_RUST
+fi
 rustc=$(rustc --version)
 
 cargo static-gst
