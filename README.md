@@ -172,6 +172,11 @@ libraries statically. See the comments in those files and in the script.
     supports only constant QP, not CBR. Then `--qp` sets the quality, and
     `--bitrate` is ignored.
 
+  wlcast logs the bitrate or QP it applies along with the encoder. It warns
+  if you set only `--bitrate` and a constant-QP mode is picked, or only `--qp`
+  and a bitrate mode is picked. Set both to cover either case without a
+  warning.
+
 ## MediaMTX
 
 wlcast needs a MediaMTX server to publish to. Download a release for your

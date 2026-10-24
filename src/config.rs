@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use clap::{Parser, ValueEnum};
+use clap::parser::ValueSource;
+use clap::{CommandFactory, FromArgMatches, Parser, ValueEnum};
 
 /// Stream the Wayland desktop and system audio to an RTSP server (MediaMTX).
 #[derive(Parser, Debug, Clone)]
@@ -81,6 +82,15 @@ pub struct Config {
     /// a white flash and a 1 kHz beep at the start of every second.
     #[arg(long)]
     pub test_pattern: bool,
+
+    /// Whether `--bitrate` was given (on the command line or in the
+    /// environment), not just defaulted.
+    #[arg(skip)]
+    pub bitrate_set: bool,
+
+    /// Whether `--qp` was given.
+    #[arg(skip)]
+    pub qp_set: bool,
 }
 
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,6 +115,22 @@ pub enum EncoderChoice {
 }
 
 impl Config {
+    /// Parses the command line and environment, noting which rate options
+    /// were set explicitly.
+    pub fn load() -> Self {
+        let matches = Self::command().get_matches();
+        let mut cfg = Self::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+        let given = |id| {
+            matches!(
+                matches.value_source(id),
+                Some(ValueSource::CommandLine | ValueSource::EnvVariable)
+            )
+        };
+        cfg.bitrate_set = given("bitrate");
+        cfg.qp_set = given("qp");
+        cfg
+    }
+
     /// (audio delay, video delay) in ms, both >= 0.
     pub fn branch_delays_ms(&self) -> (u64, u64) {
         let d = self.audio_delay_ms;

@@ -79,6 +79,46 @@ impl EncoderMode {
         self != Self::X264
     }
 
+    /// Whether the mode uses `--qp` (constant QP) rather than `--bitrate`.
+    fn is_cqp(self) -> bool {
+        matches!(self, Self::VaLpCqp | Self::VaCqp)
+    }
+
+    /// The rate setting the mode applies, for the log.
+    fn rate(self, cfg: &Config) -> String {
+        if self.is_cqp() {
+            format!("QP {} (P-frames {})", cfg.qp, cfg.qp + 2)
+        } else {
+            format!("{} kbit/s", cfg.bitrate)
+        }
+    }
+
+    /// A warning when the one rate option the user set is the one this mode
+    /// ignores. Setting both is fine: either kind of mode may be picked.
+    fn ignored_warning(self, cfg: &Config) -> Option<String> {
+        if self.is_cqp() && cfg.bitrate_set && !cfg.qp_set {
+            Some(format!(
+                "--bitrate is ignored: {} uses constant QP; set --qp instead \
+                 (each +6 roughly halves the bitrate)",
+                self.name()
+            ))
+        } else if !self.is_cqp() && cfg.qp_set && !cfg.bitrate_set {
+            Some(format!(
+                "--qp is ignored: {} uses a target bitrate; set --bitrate instead",
+                self.name()
+            ))
+        } else {
+            None
+        }
+    }
+
+    fn log_chosen(self, cfg: &Config, how: &str) {
+        info!("encoder: {} at {} ({how})", self.name(), self.rate(cfg));
+        if let Some(w) = self.ignored_warning(cfg) {
+            warn!("{w}");
+        }
+    }
+
     /// VA modes convert with `vapostproc` when it exists and with
     /// `videoconvertscale` otherwise (see `va_input`), so neither is listed.
     fn elements(self) -> &'static [&'static str] {
@@ -155,7 +195,7 @@ pub fn select_encoder(cfg: &Config) -> Result<EncoderMode> {
                 missing.join(", ")
             );
         }
-        info!("encoder: {} (forced)", mode.name());
+        mode.log_chosen(cfg, "forced");
         return Ok(mode);
     }
 
@@ -171,11 +211,7 @@ pub fn select_encoder(cfg: &Config) -> Result<EncoderMode> {
         }
         match probe(cfg, mode) {
             Ok(elapsed) => {
-                info!(
-                    "encoder: {} (probe took {} ms)",
-                    mode.name(),
-                    elapsed.as_millis()
-                );
+                mode.log_chosen(cfg, &format!("probe took {} ms", elapsed.as_millis()));
                 return Ok(mode);
             }
             Err(e) => info!("probe: {} failed: {e:#}", mode.name()),
@@ -385,6 +421,34 @@ mod tests {
         assert!(mentions_rate_control("rate_control"));
         assert!(!mentions_rate_control("ratecontrol"));
         assert!(!mentions_rate_control("framerate changed"));
+    }
+
+    #[test]
+    fn warns_only_about_a_lone_ignored_rate_option() {
+        use clap::Parser;
+        let cfg = |bitrate_set, qp_set| Config {
+            bitrate_set,
+            qp_set,
+            ..Config::parse_from(["wlcast"])
+        };
+        let cqp = EncoderMode::VaLpCqp;
+        let cbr = EncoderMode::X264;
+        assert!(
+            cqp.ignored_warning(&cfg(true, false))
+                .unwrap()
+                .starts_with("--bitrate")
+        );
+        assert!(
+            cbr.ignored_warning(&cfg(false, true))
+                .unwrap()
+                .starts_with("--qp")
+        );
+        for mode in [cqp, cbr] {
+            assert_eq!(mode.ignored_warning(&cfg(false, false)), None);
+            assert_eq!(mode.ignored_warning(&cfg(true, true)), None);
+        }
+        assert_eq!(cqp.ignored_warning(&cfg(false, true)), None);
+        assert_eq!(cbr.ignored_warning(&cfg(true, false)), None);
     }
 
     #[test]

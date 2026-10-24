@@ -9,7 +9,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow};
-use clap::Parser;
 use gstreamer as gst;
 use gstreamer::prelude::*;
 use log::{error, info, warn};
@@ -30,7 +29,7 @@ const STOP_GRACE: Duration = Duration::from_secs(1);
 
 fn main() -> ExitCode {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    let cfg = Config::parse();
+    let cfg = Config::load();
     match run(&cfg) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
