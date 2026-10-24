@@ -155,6 +155,20 @@ register its plugins. `.cargo/static-gst.toml` points pkg-config at
 `target/gst-full` and makes the gstreamer `-sys` crates link gst-full's
 libraries statically. See the comments in those files and in the script.
 
+### Release packages
+
+`scripts/package.sh` builds a release tarball for the machine's architecture
+(`target/dist/wlcast_vVERSION_linux_ARCH.tar.gz`, with a `.sha256` file). It
+runs `cargo static-gst`, checks the binary (linked libraries, the glibc
+version it needs, `--version`, and a test-pattern run), and adds
+`THIRD_PARTY_LICENSES.txt`. That file lists the bundled C libraries with links
+to their source, and includes the license texts of those libraries and of the
+Rust crates. The notices need
+[cargo-about](https://github.com/EmbarkStudios/cargo-about):
+`cargo install --locked --features cli cargo-about`.
+
+Release binaries are built natively on each architecture, not cross-compiled.
+
 ### Runtime requirements
 
 - A Wayland compositor offering `ext-image-copy-capture-v1` or

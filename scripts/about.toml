@@ -1,0 +1,20 @@
+# cargo-about configuration for the Rust part of THIRD_PARTY_LICENSES
+# (see scripts/package.sh). Order is preference: for "MIT OR Apache-2.0"
+# the first accepted license is used.
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unlicense",
+]
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+# Only crates built for the released targets.
+targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+
+# wlcast itself; its license is LICENSE, so the template leaves it out.
+[wlcast]
+accepted = ["GPL-3.0-or-later"]
