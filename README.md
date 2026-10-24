@@ -37,7 +37,8 @@ serves the viewer page and fans the stream out to browsers over WebRTC.
   PipeWire in the background.
 - **Encoding:** at startup wlcast probes for a working H.264 encoder: VA-API
   low-power, then VA-API, each with CBR and then CQP, then x264. It logs the one
-  it picks.
+  it picks. On an Intel NUC7 with Debian's driver it picks VA-API low-power
+  CQP, which uses about 40% less CPU than x264.
 - **Recovery:** if MediaMTX goes away, wlcast reconnects. If capture fails (for
   example PipeWire restarts), it restarts the capture. If the user stops
   sharing from the desktop, wlcast exits.
@@ -122,6 +123,11 @@ From the crate root:
 The binary is `target/static/release/wlcast`. Both commands must run in the
 crate root.
 
+The gst-full install also has `gst-inspect-1.0` and `gst-launch-1.0` in
+`target/gst-full/prefix/bin`, built against the same plugins. They're handy for
+checking what the static build contains (on a VA-API machine,
+`gst-inspect-1.0 va` lists the encoders the driver supports).
+
 `cargo clean` deletes `target/gst-full` along with everything else, so the next
 static build needs gst-full rebuilt first. `cargo clean --release` or
 `cargo clean -p wlcast` leave it alone. To keep gst-full somewhere else, pass a
@@ -148,6 +154,12 @@ libraries statically. See the comments in those files and in the script.
   links against it.
 - For hardware encoding, a VA-API driver, e.g. `intel-media-va-driver` on Intel.
   Without one, wlcast falls back to x264.
+  - Debian's `intel-media-va-driver` has no video-processing entrypoint, so the
+    scaling and conversion to NV12 ahead of the encoder happen on the CPU. With
+    a driver that has one, wlcast does them on the GPU.
+  - Without HuC firmware loaded (the default on older Intel GPUs), the encoder
+    supports only constant QP, not CBR. Then `--qp` sets the quality, and
+    `--bitrate` is ignored.
 
 ## MediaMTX
 
