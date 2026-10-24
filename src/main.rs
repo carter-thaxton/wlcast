@@ -1,25 +1,25 @@
+mod capture;
 mod config;
 mod feed;
 mod pipeline;
-mod testsrc;
 
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow};
 use clap::Parser;
 use gstreamer as gst;
 use gstreamer::prelude::*;
 use log::{error, info, warn};
 
+use crate::capture::Capture;
 use crate::config::Config;
-use crate::feed::StopFlag;
 use crate::pipeline::{EncoderMode, NullOnDrop};
 
-/// Restart backoff doubles from MIN to MAX, and resets once a session has
-/// run for STABLE.
+/// Restart backoff doubles from MIN to MAX, and resets once things have run
+/// for STABLE.
 const BACKOFF_MIN: Duration = Duration::from_secs(1);
 const BACKOFF_MAX: Duration = Duration::from_secs(10);
 const STABLE: Duration = Duration::from_secs(30);
@@ -45,11 +45,7 @@ fn run(cfg: &Config) -> Result<()> {
     }
     pipeline::check_elements()?;
 
-    if !cfg.test_pattern {
-        bail!("desktop capture isn't implemented yet; run with --test-pattern");
-    }
-
-    let shutdown: StopFlag = Arc::new(AtomicBool::new(false));
+    let shutdown = Arc::new(AtomicBool::new(false));
     let flag = shutdown.clone();
     ctrlc::set_handler(move || flag.store(true, Ordering::SeqCst))
         .context("can't install signal handler")?;
@@ -64,52 +60,104 @@ unsafe extern "C" {
     fn gst_init_static_plugins();
 }
 
-/// Runs sessions until shutdown, restarting with backoff whenever one fails
-/// (RTSP server gone, pipeline error).
+/// Why a pipeline session ended.
+enum Ended {
+    Shutdown,
+    /// The capture failed (PipeWire restart, portal session closed, output
+    /// gone): restart capture and pipeline.
+    Capture(String),
+    /// The pipeline failed (RTSP server gone, ...): restart the pipeline only.
+    Pipeline(anyhow::Error),
+}
+
+/// Runs until shutdown, restarting with backoff whatever fails.
 fn supervise(cfg: &Config, mode: EncoderMode, shutdown: &AtomicBool) {
-    let mut backoff = BACKOFF_MIN;
+    let mut backoff = Backoff::new();
     while !shutdown.load(Ordering::SeqCst) {
-        let started = Instant::now();
-        match session(cfg, mode, shutdown) {
-            Ok(()) => return,
-            Err(e) => warn!("session ended: {e:#}"),
+        let capture = match Capture::start(cfg) {
+            Ok(c) => c,
+            Err(e) => {
+                warn!("capture failed to start: {e:#}");
+                backoff.wait(shutdown);
+                continue;
+            }
+        };
+        loop {
+            match session(cfg, mode, &capture, shutdown) {
+                Ended::Shutdown => return,
+                Ended::Capture(e) => {
+                    warn!("capture failed: {e}");
+                    break;
+                }
+                Ended::Pipeline(e) => warn!("pipeline failed: {e:#}"),
+            }
+            backoff.wait(shutdown);
+            if shutdown.load(Ordering::SeqCst) {
+                return;
+            }
         }
-        if started.elapsed() >= STABLE {
-            backoff = BACKOFF_MIN;
-        }
-        info!("restarting in {} s", backoff.as_secs());
-        let deadline = Instant::now() + backoff;
-        while Instant::now() < deadline && !shutdown.load(Ordering::SeqCst) {
-            std::thread::sleep(Duration::from_millis(100));
-        }
-        backoff = (backoff * 2).min(BACKOFF_MAX);
+        drop(capture);
+        backoff.wait(shutdown);
     }
 }
 
-/// One pipeline lifetime. Returns Ok on a requested shutdown, Err when the
-/// pipeline fails.
-fn session(cfg: &Config, mode: EncoderMode, shutdown: &AtomicBool) -> Result<()> {
-    let stream = pipeline::build(cfg, mode)?;
-    let _null = NullOnDrop(stream.pipeline.clone());
-    let stop: StopFlag = Arc::new(AtomicBool::new(false));
-    let threads = testsrc::start(&stream, cfg.fps, &stop);
-    let stop_sources = || {
-        stop.store(true, Ordering::SeqCst);
-        for t in threads {
-            let _ = t.join();
-        }
-    };
+struct Backoff {
+    delay: Duration,
+    since: Instant,
+}
 
+impl Backoff {
+    fn new() -> Self {
+        Self {
+            delay: BACKOFF_MIN,
+            since: Instant::now(),
+        }
+    }
+
+    /// Sleeps before a restart (returning early on shutdown).
+    fn wait(&mut self, shutdown: &AtomicBool) {
+        if self.since.elapsed() >= STABLE {
+            self.delay = BACKOFF_MIN;
+        }
+        info!("restarting in {} s", self.delay.as_secs());
+        let deadline = Instant::now() + self.delay;
+        while Instant::now() < deadline && !shutdown.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        self.delay = (self.delay * 2).min(BACKOFF_MAX);
+        self.since = Instant::now();
+    }
+}
+
+/// One pipeline lifetime, fed by `capture`.
+fn session(cfg: &Config, mode: EncoderMode, capture: &Capture, shutdown: &AtomicBool) -> Ended {
+    let stream = match pipeline::build(cfg, mode) {
+        Ok(s) => s,
+        Err(e) => return Ended::Pipeline(e),
+    };
+    let _null = NullOnDrop(stream.pipeline.clone());
     if let Err(e) = stream.pipeline.set_state(gst::State::Playing) {
-        stop_sources();
-        bail!("pipeline won't start: {e}");
+        return Ended::Pipeline(anyhow!("pipeline won't start: {e}"));
     }
     info!("publishing to {}", cfg.rtsp_url);
 
     let bus = stream.pipeline.bus().unwrap();
-    let result = loop {
+    let mut attached = false;
+    let ended = loop {
         if shutdown.load(Ordering::SeqCst) {
-            break Ok(());
+            break Ended::Shutdown;
+        }
+        if let Some(e) = capture.failure() {
+            break Ended::Capture(e);
+        }
+        // The base time is fixed once the pipeline reaches PLAYING.
+        if !attached
+            && stream.pipeline.current_state() == gst::State::Playing
+            && let Some(base_time) = stream.pipeline.base_time()
+        {
+            capture.video.attach(stream.video.clone(), base_time);
+            capture.audio.attach(stream.audio.clone(), base_time);
+            attached = true;
         }
         let Some(msg) = bus.timed_pop(gst::ClockTime::from_mseconds(100)) else {
             continue;
@@ -118,16 +166,17 @@ fn session(cfg: &Config, mode: EncoderMode, shutdown: &AtomicBool) -> Result<()>
             gst::MessageView::Error(e) => {
                 let src = e.src().map(|s| s.path_string()).unwrap_or_default();
                 let debug = e.debug().map(|d| format!(" ({d})")).unwrap_or_default();
-                break Err(anyhow::anyhow!("{src}: {}{debug}", e.error()));
+                break Ended::Pipeline(anyhow!("{src}: {}{debug}", e.error()));
             }
-            gst::MessageView::Eos(_) => break Err(anyhow::anyhow!("unexpected end of stream")),
+            gst::MessageView::Eos(_) => break Ended::Pipeline(anyhow!("unexpected end of stream")),
             gst::MessageView::Warning(w) => warn!("{}", w.error()),
             _ => {}
         }
     };
 
-    stop_sources();
-    if result.is_ok() {
+    capture.video.detach();
+    capture.audio.detach();
+    if matches!(ended, Ended::Shutdown) {
         // Clean shutdown: let the sinks see EOS so RTSP is torn down properly.
         info!("shutting down");
         let _ = stream.video.end_of_stream();
@@ -140,5 +189,5 @@ fn session(cfg: &Config, mode: EncoderMode, shutdown: &AtomicBool) -> Result<()>
             warn!("no EOS within {} s; stopping anyway", EOS_TIMEOUT.as_secs());
         }
     }
-    result
+    ended
 }

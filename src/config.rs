@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{Parser, ValueEnum};
 
 /// Stream the Wayland desktop and system audio to an RTSP server (MediaMTX).
@@ -49,6 +51,19 @@ pub struct Config {
     #[arg(long, env = "WLCAST_ENCODER", value_enum, default_value_t = EncoderChoice::Auto)]
     pub encoder: EncoderChoice,
 
+    /// Draw the mouse cursor into the video.
+    #[arg(long, env = "WLCAST_CURSOR", default_value_t = true, action = clap::ArgAction::Set)]
+    pub cursor: bool,
+
+    /// Capture this sink's monitor (its node.name) instead of the default sink's.
+    #[arg(long, env = "WLCAST_AUDIO_TARGET")]
+    pub audio_target: Option<String>,
+
+    /// Where to keep the ScreenCast portal's restore token
+    /// [default: $XDG_STATE_HOME/wlcast/portal-restore-token].
+    #[arg(long, env = "WLCAST_RESTORE_TOKEN_FILE")]
+    pub restore_token_file: Option<PathBuf>,
+
     /// Publish a generated A/V sync pattern instead of capturing the desktop:
     /// a white flash and a 1 kHz beep at the start of every second.
     #[arg(long)]
@@ -74,5 +89,17 @@ impl Config {
         } else {
             (0, d.unsigned_abs() as u64)
         }
+    }
+
+    pub fn restore_token_path(&self) -> PathBuf {
+        if let Some(p) = &self.restore_token_file {
+            return p.clone();
+        }
+        let state = std::env::var_os("XDG_STATE_HOME")
+            .map(PathBuf::from)
+            .filter(|p| p.is_absolute())
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/state")))
+            .unwrap_or_else(|| PathBuf::from("."));
+        state.join("wlcast/portal-restore-token")
     }
 }

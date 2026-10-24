@@ -14,6 +14,7 @@ use gstreamer_app as gst_app;
 use log::{debug, info, warn};
 
 use crate::config::{Config, EncoderChoice};
+use crate::feed;
 
 /// Elements every pipeline needs, whatever the encoder.
 const REQUIRED_ELEMENTS: &[&str] = &[
@@ -274,8 +275,8 @@ pub fn build(cfg: &Config, mode: EncoderMode) -> Result<Stream> {
     let desc = format!(
         "rtspclientsink name=sink protocols=tcp latency=0 \
          appsrc name=video is-live=true format=time max-buffers=2 leaky-type=downstream \
-           ! videorate ! video/x-raw,framerate={fps}/1 \
            ! queue max-size-buffers=2 leaky=downstream \
+           ! videorate ! video/x-raw,framerate={fps}/1 \
            ! {enc} ! h264parse config-interval=-1 ! {vdelay} ! sink. \
          appsrc name=audio is-live=true format=time \
            ! queue ! audioconvert ! audioresample ! audio/x-raw,rate=48000,channels=2 \
@@ -287,6 +288,8 @@ pub fn build(cfg: &Config, mode: EncoderMode) -> Result<Stream> {
         adelay = delay_queue("adelay", a_delay),
     );
     let pipeline = launch(&desc)?;
+    // Sources timestamp with this clock; see feed.rs.
+    pipeline.use_clock(Some(&feed::clock()));
     pipeline
         .by_name("sink")
         .ok_or_else(|| anyhow!("no rtspclientsink in pipeline"))?
@@ -305,12 +308,11 @@ pub fn build(cfg: &Config, mode: EncoderMode) -> Result<Stream> {
     })
 }
 
-/// The last queue on a branch, just before the sink. Delaying a branch takes
-/// two things, and either alone measurably does nothing at the receiver:
+/// The last queue on a branch, just before the sink. To delay a branch,
 /// `build` shifts the running time on the queue's src pad (moving the RTP
-/// timestamps), and the queue holds the data back by the same amount (so it
-/// is also sent that much later). `identity ts-offset`, which the prototype
-/// used, only affects clock sync and doesn't shift timestamps.
+/// timestamps) and the queue holds the data back by the same amount (so it
+/// is also sent that much later). With the test pattern, measured through
+/// MediaMTX, either one alone left the offset at zero.
 fn delay_queue(name: &str, ms: u64) -> String {
     if ms == 0 {
         return format!("queue name={name}");

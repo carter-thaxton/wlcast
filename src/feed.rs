@@ -1,46 +1,191 @@
-//! Timing shared by all sources. The daemon owns timestamps: every buffer's
-//! PTS is a running time on the pipeline clock, so audio and video from
-//! different sources line up.
+//! The link between a capture source and whichever pipeline is running.
+//!
+//! Sources outlive pipelines: an RTSP reconnect rebuilds the pipeline but
+//! keeps the portal session and PipeWire streams. Sources timestamp buffers
+//! with the system clock (which every pipeline uses), and the feed converts
+//! that to the current pipeline's running time. Buffers pushed while no
+//! pipeline is attached are dropped.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use gstreamer as gst;
 use gstreamer::prelude::*;
+use gstreamer_app as gst_app;
+use log::debug;
 
-#[derive(Clone)]
-pub struct PipelineClock {
-    clock: gst::Clock,
+/// The clock all sources timestamp with and all pipelines run on.
+pub fn clock() -> gst::Clock {
+    gst::SystemClock::obtain()
+}
+
+#[derive(Clone, Default)]
+pub struct Feed(Arc<Mutex<State>>);
+
+#[derive(Default)]
+struct State {
+    caps: Option<gst::Caps>,
+    target: Option<Target>,
+    failed: Option<String>,
+    /// Last buffer pushed and its capture time, for keepalive repeats.
+    last: Option<(gst::Buffer, gst::ClockTime)>,
+}
+
+struct Target {
+    src: gst_app::AppSrc,
     base_time: gst::ClockTime,
+    last_pts: Option<gst::ClockTime>,
 }
 
-impl PipelineClock {
-    /// Blocks until the pipeline is PLAYING (when its clock and base time
-    /// are fixed). Returns `None` if `stop` is set first.
-    pub fn wait_playing(pipeline: &gst::Pipeline, stop: &AtomicBool) -> Option<Self> {
-        while !stop.load(Ordering::SeqCst) {
-            if pipeline.current_state() == gst::State::Playing
-                && let (Some(clock), Some(base_time)) = (pipeline.clock(), pipeline.base_time())
-            {
-                return Some(Self { clock, base_time });
-            }
-            std::thread::sleep(Duration::from_millis(10));
+impl Feed {
+    fn state(&self) -> MutexGuard<'_, State> {
+        self.0.lock().unwrap()
+    }
+
+    /// Sets the format of the buffers that follow.
+    pub fn set_caps(&self, caps: gst::Caps) {
+        let mut st = self.state();
+        if let Some(t) = &st.target {
+            t.src.set_caps(Some(&caps));
         }
-        None
+        st.last = None;
+        st.caps = Some(caps);
     }
 
-    /// Current running time.
-    pub fn now(&self) -> gst::ClockTime {
-        self.clock.time().saturating_sub(self.base_time)
+    /// Pushes a buffer captured at `capture_time` (on [`clock`]).
+    pub fn push(&self, buf: gst::Buffer, capture_time: gst::ClockTime) {
+        let mut st = self.state();
+        st.last = Some((buf.clone(), capture_time));
+        if let Some(t) = &mut st.target {
+            t.push(buf, capture_time);
+        }
     }
 
-    /// Sleeps until the given running time.
-    pub fn wait_until(&self, running_time: gst::ClockTime) {
-        let id = self.clock.new_single_shot_id(self.base_time + running_time);
-        let _ = id.wait();
+    /// Re-pushes the last buffer if nothing was pushed for `idle`. Damage-
+    /// driven capture sends nothing while the screen is still, but encoders
+    /// and newly joined viewers need a steady stream of frames.
+    pub fn repeat_if_idle(&self, idle: gst::ClockTime) {
+        let now = clock().time();
+        let mut st = self.state();
+        let Some((buf, at)) = st.last.clone() else {
+            return;
+        };
+        if now.saturating_sub(at) < idle {
+            return;
+        }
+        st.last = Some((buf.clone(), now));
+        if let Some(t) = &mut st.target {
+            t.push(buf, now);
+        }
+    }
+
+    /// Records a fatal source error; the supervisor restarts the capture.
+    pub fn fail(&self, msg: impl Into<String>) {
+        let mut st = self.state();
+        if st.failed.is_none() {
+            st.failed = Some(msg.into());
+        }
+    }
+
+    pub fn failure(&self) -> Option<String> {
+        self.state().failed.clone()
+    }
+
+    /// Starts feeding a pipeline's appsrc. Call once the pipeline is PLAYING.
+    pub fn attach(&self, src: gst_app::AppSrc, base_time: gst::ClockTime) {
+        let mut st = self.state();
+        if let Some(caps) = &st.caps {
+            src.set_caps(Some(caps));
+        }
+        st.target = Some(Target {
+            src,
+            base_time,
+            last_pts: None,
+        });
+    }
+
+    pub fn detach(&self) {
+        self.state().target = None;
     }
 }
 
-/// Set to ask source threads to exit.
-pub type StopFlag = Arc<AtomicBool>;
+impl Target {
+    fn push(&mut self, mut buf: gst::Buffer, capture_time: gst::ClockTime) {
+        let Some(mut pts) = capture_time.checked_sub(self.base_time) else {
+            return; // captured before this pipeline started
+        };
+        // Keep PTS strictly increasing even if pushes race.
+        if let Some(last) = self.last_pts
+            && pts <= last
+        {
+            pts = last + gst::ClockTime::from_nseconds(1);
+        }
+        self.last_pts = Some(pts);
+        buf.make_mut().set_pts(pts);
+        if let Err(e) = self.src.push_buffer(buf) {
+            debug!("{}: push failed: {e:?}", self.src.name());
+        }
+    }
+}
+
+/// A running source. Stops when dropped.
+pub struct Running {
+    stop: Arc<AtomicBool>,
+    threads: Vec<JoinHandle<()>>,
+    on_stop: Vec<Box<dyn FnOnce() + Send>>,
+}
+
+impl Running {
+    pub fn new() -> Self {
+        Self {
+            stop: Arc::new(AtomicBool::new(false)),
+            threads: Vec::new(),
+            on_stop: Vec::new(),
+        }
+    }
+
+    /// Set when the source should stop.
+    pub fn stop_flag(&self) -> Arc<AtomicBool> {
+        self.stop.clone()
+    }
+
+    pub fn add_thread(&mut self, t: JoinHandle<()>) {
+        self.threads.push(t);
+    }
+
+    /// Runs `f` when stopping, after the stop flag is set and before joining
+    /// threads (in reverse order of registration).
+    pub fn on_stop(&mut self, f: impl FnOnce() + Send + 'static) {
+        self.on_stop.push(Box::new(f));
+    }
+
+    /// Repeats the feed's last buffer whenever it has been idle for `idle`.
+    pub fn keepalive(&mut self, feed: &Feed, idle: Duration) {
+        let (feed, stop) = (feed.clone(), self.stop_flag());
+        let idle_ct = gst::ClockTime::from_nseconds(idle.as_nanos() as u64);
+        let t = thread::Builder::new()
+            .name("keepalive".into())
+            .spawn(move || {
+                while !stop.load(Ordering::SeqCst) {
+                    thread::sleep(idle / 5);
+                    feed.repeat_if_idle(idle_ct);
+                }
+            })
+            .expect("spawn keepalive thread");
+        self.add_thread(t);
+    }
+}
+
+impl Drop for Running {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+        while let Some(f) = self.on_stop.pop() {
+            f();
+        }
+        for t in self.threads.drain(..) {
+            let _ = t.join();
+        }
+    }
+}
