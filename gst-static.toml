@@ -1,9 +1,0 @@
-# cargo build --release --features static-gst --config gst-static.toml
-# The gstreamer -sys crates skip pkg-config; build.rs links gstreamer-full-1.0.
-[env]
-SYSTEM_DEPS_GLIB_2_0_NO_PKG_CONFIG = "1"
-SYSTEM_DEPS_GOBJECT_2_0_NO_PKG_CONFIG = "1"
-SYSTEM_DEPS_GIO_2_0_NO_PKG_CONFIG = "1"
-SYSTEM_DEPS_GSTREAMER_1_0_NO_PKG_CONFIG = "1"
-SYSTEM_DEPS_GSTREAMER_BASE_1_0_NO_PKG_CONFIG = "1"
-SYSTEM_DEPS_GSTREAMER_APP_1_0_NO_PKG_CONFIG = "1"

@@ -1,0 +1,5 @@
+[alias]
+# Production build against a static gst-full GStreamer; see static-gst.toml.
+# Separate target dir, so switching between this and a plain `cargo build`
+# doesn't rebuild everything.
+static-gst = "build --release --features static-gst --config static-gst.toml --target-dir target/static"

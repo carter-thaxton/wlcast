@@ -1,9 +1,30 @@
 fn main() {
-    // With static-gst, gst-static.toml turns off the -sys crates' own
-    // pkg-config lookups and this one probe supplies every link flag.
     #[cfg(feature = "static-gst")]
+    static_gst();
+}
+
+/// Links the static gst-full build that PKG_CONFIG_PATH points at (see
+/// scripts/build-gst-full.sh and static-gst.toml). The gstreamer -sys crates
+/// link the core libraries from the same prefix; this adds the plugins and
+/// gst_init_static_plugins(). Plugin .pc files live in a subdirectory of
+/// libdir (gstreamer-full-1.0.pc requires them), so that goes on the
+/// pkg-config path too.
+#[cfg(feature = "static-gst")]
+fn static_gst() {
+    println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
+    let hint = "static-gst: set PKG_CONFIG_PATH=<gst-full prefix>/lib/pkgconfig";
+    let libdir = pkg_config::get_variable("gstreamer-1.0", "libdir")
+        .unwrap_or_else(|e| panic!("{hint}: {e}"));
+    let path = std::env::var("PKG_CONFIG_PATH").unwrap_or_default();
+    // SAFETY: build scripts are single-threaded.
+    unsafe {
+        std::env::set_var(
+            "PKG_CONFIG_PATH",
+            format!("{path}:{libdir}/gstreamer-1.0/pkgconfig"),
+        )
+    };
     pkg_config::Config::new()
         .statik(true)
         .probe("gstreamer-full-1.0")
-        .expect("gstreamer-full-1.0 not found; set PKG_CONFIG_PATH to the gst-full build");
+        .unwrap_or_else(|e| panic!("{hint}: {e}"));
 }

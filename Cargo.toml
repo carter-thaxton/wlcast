@@ -18,8 +18,8 @@ log = "0.4.34"
 pipewire = "0.10.1"
 
 [features]
-# Production: link a static "gst-full" GStreamer build. Use with
-# `--config gst-static.toml` (see CLAUDE.md).
+# Production: link a static "gst-full" GStreamer build. Build with the
+# `cargo static-gst` alias (.cargo/config.toml, static-gst.toml).
 static-gst = ["dep:pkg-config"]
 
 [build-dependencies]
