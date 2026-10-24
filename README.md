@@ -1,9 +1,14 @@
 # wlcast
 
 wlcast streams a live Wayland desktop, with video and system audio, to web
-browsers. It's built for remote viewing and demos of a karaoke/media player, so
-it puts readable text, A/V sync and low latency ahead of picture quality. It's
-one-way: viewers watch and listen, with no input handling.
+browsers. It puts readable text, A/V sync and low latency ahead of picture
+quality. It's one-way: viewers watch and listen, with no input handling.
+
+It's intended for small Wayland environments, such as appliances, kiosks and
+embedded or headless devices running a lightweight compositor. That's why it
+can be built as a single binary with GStreamer linked in (see
+[static-gst](#static-gst-gstreamer-built-in)). It also runs on desktops such
+as GNOME.
 
 ```
 screen capture ─► H.264 (VA-API or x264) ─┐
@@ -69,7 +74,8 @@ GStreamer element it needs is installed and names any that are missing.
 
 ### static-gst: GStreamer built in
 
-For deployment. GStreamer 1.26, glib, x264, Opus and orc are linked statically
+For deployment on small systems that shouldn't need a full GStreamer
+installation. GStreamer 1.26, glib, x264, Opus and orc are linked statically
 from a custom "gst-full" build that contains only the plugins wlcast uses. The
 binary then needs only these on the target machine: glibc, libpipewire-0.3,
 libva and libva-drm (plus libdrm and libgcc_s, which those and every Debian
