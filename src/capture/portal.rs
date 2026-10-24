@@ -24,13 +24,9 @@ use futures_lite::future::{FutureExt, block_on};
 use futures_lite::stream::StreamExt;
 use log::{info, warn};
 
-use super::{VideoBackend, pwvideo};
+use super::{VideoBackend, keepalive_interval, pwvideo};
 use crate::config::Config;
 use crate::feed::{Feed, Running};
-
-/// Repeat the last frame after this many frame periods without a new one,
-/// so the stream keeps its frame rate while the screen is still.
-const KEEPALIVE_FRAMES: f64 = 1.5;
 
 pub struct Portal;
 
@@ -62,10 +58,7 @@ impl VideoBackend for Portal {
         });
         watch_closed(&mut running, session, feed.clone());
         pwvideo::start(&mut running, opened.fd, opened.node, cfg, feed.clone())?;
-        running.keepalive(
-            &feed,
-            Duration::from_secs_f64(KEEPALIVE_FRAMES / cfg.fps as f64),
-        );
+        running.keepalive(&feed, keepalive_interval(cfg.fps));
         Ok(running)
     }
 }

@@ -16,7 +16,12 @@ futures-lite = "2.6.1"
 gstreamer = "0.25.4"
 gstreamer-app = "0.25.2"
 log = "0.4.34"
+memmap2 = "0.9"
 pipewire = "0.10.1"
+rustix = { version = "1", features = ["fs", "event"] }
+wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
 
 [features]
 # Production: link a static "gst-full" GStreamer build. Build with the

@@ -51,6 +51,15 @@ pub struct Config {
     #[arg(long, env = "WLCAST_ENCODER", value_enum, default_value_t = EncoderChoice::Auto)]
     pub encoder: EncoderChoice,
 
+    /// Screen capture method; `auto` picks the best the compositor offers.
+    #[arg(long, env = "WLCAST_CAPTURE", value_enum, default_value_t = CaptureChoice::Auto)]
+    pub capture: CaptureChoice,
+
+    /// Output (monitor) to capture, by name, e.g. HDMI-A-1 [default: the
+    /// first]. Not used with the portal, which asks the user.
+    #[arg(long, env = "WLCAST_OUTPUT")]
+    pub output: Option<String>,
+
     /// Draw the mouse cursor into the video.
     #[arg(long, env = "WLCAST_CURSOR", default_value_t = true, action = clap::ArgAction::Set)]
     pub cursor: bool,
@@ -68,6 +77,17 @@ pub struct Config {
     /// a white flash and a 1 kHz beep at the start of every second.
     #[arg(long)]
     pub test_pattern: bool,
+}
+
+#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CaptureChoice {
+    Auto,
+    /// ext-image-copy-capture-v1 (wlroots 0.19+)
+    Ext,
+    /// wlr-screencopy-unstable-v1, version 3
+    Wlr,
+    /// xdg-desktop-portal ScreenCast (GNOME, KDE, ...)
+    Portal,
 }
 
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]

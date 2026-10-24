@@ -6,13 +6,14 @@ mod pw;
 mod pwaudio;
 mod pwvideo;
 mod testsrc;
+mod wl;
 
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use log::info;
 
-use crate::config::Config;
+use crate::config::{CaptureChoice, Config};
 use crate::feed::{Feed, Running, Stop};
 
 /// A way of capturing the screen. Every backend pushes raw frames into the
@@ -23,10 +24,26 @@ pub trait VideoBackend {
     fn start(&self, cfg: &Config, feed: Feed) -> Result<Running>;
 }
 
-/// Picks the screen capture backend. The ext and wlr protocol backends will
-/// be chosen here from the Wayland registry; for now it's always the portal.
-fn select_backend() -> Box<dyn VideoBackend> {
-    Box::new(portal::Portal)
+/// Picks the screen capture backend: --capture if given, otherwise the best
+/// protocol the compositor offers (ext-image-copy-capture, then
+/// wlr-screencopy), falling back to the ScreenCast portal.
+fn select_backend(cfg: &Config) -> Box<dyn VideoBackend> {
+    match cfg.capture {
+        CaptureChoice::Ext => Box::new(wl::Wayland(wl::Protocol::Ext)),
+        CaptureChoice::Wlr => Box::new(wl::Wayland(wl::Protocol::Wlr)),
+        CaptureChoice::Portal => Box::new(portal::Portal),
+        CaptureChoice::Auto => match wl::probe() {
+            Some(p) => Box::new(wl::Wayland(p)),
+            None => Box::new(portal::Portal),
+        },
+    }
+}
+
+/// How long a damage-driven source may go without a new frame before the
+/// last one is repeated, so the stream keeps its frame rate while the screen
+/// is still: 1.5 frame periods.
+fn keepalive_interval(fps: u32) -> Duration {
+    Duration::from_secs_f64(1.5 / fps as f64)
 }
 
 /// Running video and audio capture.
@@ -47,7 +64,7 @@ impl Capture {
             let mut a = Running::new();
             pwaudio::start(&mut a, cfg.audio_target.clone(), audio.clone())?;
             running.push(a);
-            let backend = select_backend();
+            let backend = select_backend(cfg);
             info!("capture: {}", backend.name());
             running.push(backend.start(cfg, video.clone())?);
         }
